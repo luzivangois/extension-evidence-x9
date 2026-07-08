@@ -694,7 +694,15 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
             settingsTab.readAiApiKey(), settingsTab.currentAiProviderId(), settingsTab.currentSummaryLanguage(),
             evidence, requirement
         );
-        upsertX9Item(projectId, requirementId, summary, selectedMessage);
+        if (selectedMessage != null) {
+            // A real Burp message is being staged (context-menu action): always create a
+            // new draft, even if the requirement already has one from a different request.
+            addX9DraftItem(projectId, requirementId, summary, selectedMessage);
+        } else {
+            // No message (e.g. just clicking a requirement in the Requirements tab list):
+            // reuse/refresh the requirement's current placeholder draft instead of piling up empties.
+            upsertX9Item(projectId, requirementId, summary, null);
+        }
         if (manualRequirementSelection) {
             markAsRequirementInBurp(selectedMessage, requirementId);
         } else {
