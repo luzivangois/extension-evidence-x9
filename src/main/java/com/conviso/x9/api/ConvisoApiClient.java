@@ -366,22 +366,109 @@ public final class ConvisoApiClient {
         }
     }
 
-    public void publishApprovedSummary(String apiKey, String requirementId, String approvedSummary) throws ConvisoApiException {
-        JsonObject variables = new JsonObject();
-        try {
-            variables.addProperty("id", Integer.parseInt(requirementId));
-        } catch (NumberFormatException ignored) {
-            variables.addProperty("id", requirementId);
+    /**
+     * Sets a requirement (activity) to DONE with a comment, optionally attaching one evidence file.
+     * Pass {@code evidencePng} as {@code null} to leave archives empty (e.g. when there's no live
+     * Burp evidence available, such as the "Follow requirement" flow from an existing vulnerability).
+     */
+    public void markRequirementDone(String apiKey, String requirementId, String comment, byte[] evidencePng) throws ConvisoApiException {
+        if (evidencePng == null) {
+            JsonObject input = buildActivityStatusInput(requirementId, "DONE", comment);
+            input.add("archives", new JsonArray());
+
+            JsonObject variables = new JsonObject();
+            variables.add("input", input);
+
+            JsonObject payload = new JsonObject();
+            payload.addProperty("operationName", "UpdateActivityStatus");
+            payload.add("variables", variables);
+            payload.addProperty("query", GraphQLQueries.UPDATE_ACTIVITY_STATUS_MUTATION);
+
+            JsonObject response = graphqlRequest(apiKey, payload);
+            checkActivityMutationErrors(response, "updateActivityStatus");
+            return;
         }
-        variables.addProperty("status", "DONE");
-        variables.addProperty("reason", approvedSummary);
 
-        JsonObject payload = new JsonObject();
-        payload.addProperty("operationName", "UpdateActivityStatus");
-        payload.add("variables", variables);
-        payload.addProperty("query", GraphQLQueries.UPDATE_ACTIVITY_MUTATION);
+        JsonObject input = buildActivityStatusInput(requirementId, "DONE", comment);
+        uploadActivityAttachmentMutation(apiKey, "UpdateActivityStatus", GraphQLQueries.UPDATE_ACTIVITY_STATUS_MUTATION, "updateActivityStatus", input, "evidence.png", "image/png", evidencePng);
+    }
 
-        graphqlRequest(apiKey, payload);
+    /** Attaches one evidence file to a requirement (activity) with a comment, without changing its status. */
+    public void addRequirementAttachment(String apiKey, String requirementId, String comment, byte[] evidencePng) throws ConvisoApiException {
+        JsonObject input = new JsonObject();
+        addIntOrString(input, "id", requirementId);
+        input.addProperty("reason", comment);
+
+        uploadActivityAttachmentMutation(apiKey, "AddActivityAttachment", GraphQLQueries.ADD_ACTIVITY_ATTACHMENT_MUTATION, "addActivityAttachment", input, "evidence.png", "image/png", evidencePng);
+    }
+
+    private JsonObject buildActivityStatusInput(String requirementId, String status, String comment) {
+        JsonObject input = new JsonObject();
+        addIntOrString(input, "id", requirementId);
+        input.addProperty("status", status);
+        input.addProperty("reason", comment);
+        return input;
+    }
+
+    private void uploadActivityAttachmentMutation(
+        String apiKey, String operationName, String query, String mutationField, JsonObject input, String fileName, String contentType, byte[] fileBytes
+    ) throws ConvisoApiException {
+        JsonArray archives = new JsonArray();
+        archives.add(JsonNull.INSTANCE);
+        input.add("archives", archives);
+
+        JsonObject variables = new JsonObject();
+        variables.add("input", input);
+
+        JsonObject operations = new JsonObject();
+        operations.addProperty("operationName", operationName);
+        operations.add("variables", variables);
+        operations.addProperty("query", query);
+
+        JsonObject map = new JsonObject();
+        JsonArray archivePath = new JsonArray();
+        archivePath.add("variables.input.archives.0");
+        map.add("1", archivePath);
+
+        Map<String, String> headers = new LinkedHashMap<>();
+        headers.put("X_API_KEY", apiKey);
+        headers.put("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+        headers.put("Origin", "https://app.convisoappsec.com");
+        headers.put("Referer", "https://app.convisoappsec.com/");
+        headers.put("Apollo-Require-Preflight", "true");
+        headers.put("x-apollo-operation-name", operationName);
+
+        HttpJsonResponse response;
+        try {
+            response = MultipartHttpClient.postGraphqlFileUpload(
+                API_URL, headers, gson.toJson(operations), gson.toJson(map), "1", fileName, contentType, fileBytes
+            );
+        } catch (IOException ex) {
+            throw new ConvisoApiException("Falha de rede ao enviar evidencia para o requirement: " + ex.getMessage(), ex);
+        }
+
+        JsonObject parsed;
+        try {
+            parsed = JsonParser.parseString(response.getBody()).getAsJsonObject();
+        } catch (RuntimeException ex) {
+            throw new ConvisoApiException("Resposta invalida da Conviso Platform (HTTP " + response.getStatus() + ")", ex);
+        }
+        if (parsed.has("errors") && !parsed.get("errors").isJsonNull()) {
+            throw new ConvisoApiException(parsed.get("errors").toString());
+        }
+        if (!response.isSuccess()) {
+            throw new ConvisoApiException("HTTP " + response.getStatus() + ": " + response.getBody());
+        }
+        checkActivityMutationErrors(parsed, mutationField);
+    }
+
+    private void checkActivityMutationErrors(JsonObject response, String mutationField) throws ConvisoApiException {
+        JsonObject data = response.getAsJsonObject("data");
+        JsonObject mutationResult = data == null ? null : data.getAsJsonObject(mutationField);
+        if (mutationResult != null && mutationResult.has("errors") && mutationResult.get("errors").isJsonArray()
+            && mutationResult.getAsJsonArray("errors").size() > 0) {
+            throw new ConvisoApiException(mutationResult.getAsJsonArray("errors").toString());
+        }
     }
 
     public VulnerabilityRecord parseVulnerabilityRecord(JsonObject obj, String projectId) {

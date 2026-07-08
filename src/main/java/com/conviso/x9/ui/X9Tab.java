@@ -15,9 +15,11 @@ import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
+import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
+import javax.swing.table.AbstractTableModel;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -33,9 +35,10 @@ public final class X9Tab {
     private final JPanel panel;
 
     private DefaultListModel<X9Item> model;
-    private DefaultListModel<X9Item> pendingModel;
+    private final List<X9Item> pendingItems = new ArrayList<>();
+    private PendingTableModel pendingTableModel;
     private DefaultListModel<X9Item> sentModel;
-    private JList<X9Item> pendingList;
+    private JTable pendingTable;
     private JList<X9Item> sentList;
     private JTextField projectFilterField;
     private JComboBox<RequirementFilterOption> requirementFilter;
@@ -43,6 +46,7 @@ public final class X9Tab {
     private JTextArea summaryArea;
     private JLabel statusLabel;
     private X9Item selectedItem;
+    private boolean suppressSelectionEvent;
 
     public X9Tab(ConvisoExtension extension) {
         this.extension = extension;
@@ -121,18 +125,23 @@ public final class X9Tab {
                 break;
             }
         }
-        pendingList.clearSelection();
+        pendingTable.clearSelection();
         sentList.clearSelection();
         updateSelection(null);
         refreshViews();
     }
 
     public void selectItemByKey(String key) {
-        for (int i = 0; i < pendingModel.size(); i++) {
-            X9Item item = pendingModel.get(i);
+        for (int i = 0; i < pendingItems.size(); i++) {
+            X9Item item = pendingItems.get(i);
             if (key.equals(keyOf(item))) {
-                pendingList.setSelectedIndex(i);
-                pendingList.ensureIndexIsVisible(i);
+                suppressSelectionEvent = true;
+                try {
+                    pendingTable.getSelectionModel().setSelectionInterval(i, i);
+                } finally {
+                    suppressSelectionEvent = false;
+                }
+                pendingTable.scrollRectToVisible(pendingTable.getCellRect(i, 0, true));
                 updateSelection(item);
                 return;
             }
@@ -157,7 +166,7 @@ public final class X9Tab {
         String requirementFilterId = selectedRequirement == null ? "ALL" : safe(selectedRequirement.getId());
         String stateFilterValue = String.valueOf(stateFilter.getSelectedItem());
 
-        pendingModel.clear();
+        pendingItems.clear();
         sentModel.clear();
 
         for (int i = 0; i < model.size(); i++) {
@@ -179,9 +188,10 @@ public final class X9Tab {
                 if (!"ALL".equals(requirementFilterId) && !safe(item.getRequirementId()).equals(requirementFilterId)) {
                     continue;
                 }
-                pendingModel.addElement(item);
+                pendingItems.add(item);
             }
         }
+        pendingTableModel.fireTableDataChanged();
     }
 
     private void syncRequirementFilterOptions() {
@@ -275,17 +285,20 @@ public final class X9Tab {
         requirementFilter.setSelectedIndex(0);
 
         model = new DefaultListModel<>();
-        pendingModel = new DefaultListModel<>();
         sentModel = new DefaultListModel<>();
 
-        pendingList = new JList<>(pendingModel);
-        sentList = new JList<>(sentModel);
-        pendingList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        sentList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        pendingList.setCellRenderer(buildRenderer());
-        sentList.setCellRenderer(buildRenderer());
+        pendingTableModel = new PendingTableModel();
+        pendingTable = new JTable(pendingTableModel);
+        pendingTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        pendingTable.setRowSelectionAllowed(true);
+        pendingTable.getColumnModel().getColumn(0).setMaxWidth(60);
+        pendingTable.getColumnModel().getColumn(0).setMinWidth(60);
 
-        JScrollPane pendingScroll = new JScrollPane(pendingList);
+        sentList = new JList<>(sentModel);
+        sentList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        sentList.setCellRenderer(buildSentRenderer());
+
+        JScrollPane pendingScroll = new JScrollPane(pendingTable);
         pendingScroll.setBorder(BorderFactory.createTitledBorder("Pendentes"));
         JScrollPane sentScroll = new JScrollPane(sentList);
         sentScroll.setBorder(BorderFactory.createTitledBorder("Enviados"));
@@ -302,14 +315,14 @@ public final class X9Tab {
         JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftSplit, new JScrollPane(summaryArea));
         split.setResizeWeight(0.40);
 
-        pendingList.addListSelectionListener(e -> {
-            if (e.getValueIsAdjusting()) {
+        pendingTable.getSelectionModel().addListSelectionListener(e -> {
+            if (e.getValueIsAdjusting() || suppressSelectionEvent) {
                 return;
             }
-            X9Item item = pendingList.getSelectedValue();
-            if (item != null) {
+            int row = pendingTable.getSelectedRow();
+            if (row >= 0 && row < pendingItems.size()) {
                 sentList.clearSelection();
-                updateSelection(item);
+                updateSelection(pendingItems.get(row));
                 return;
             }
             if (sentList.getSelectedValue() == null) {
@@ -323,11 +336,11 @@ public final class X9Tab {
             }
             X9Item item = sentList.getSelectedValue();
             if (item != null) {
-                pendingList.clearSelection();
+                pendingTable.clearSelection();
                 updateSelection(item);
                 return;
             }
-            if (pendingList.getSelectedValue() == null) {
+            if (pendingTable.getSelectedRow() < 0) {
                 updateSelection(null);
             }
         });
@@ -351,7 +364,7 @@ public final class X9Tab {
         return panel;
     }
 
-    private DefaultListCellRenderer buildRenderer() {
+    private DefaultListCellRenderer buildSentRenderer() {
         return new DefaultListCellRenderer() {
             @Override
             public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
@@ -363,6 +376,53 @@ public final class X9Tab {
                 return component;
             }
         };
+    }
+
+    /** Backs the "Pendentes" table: column 0 is the "Done" checkbox, column 1 is the item's display text. */
+    private final class PendingTableModel extends AbstractTableModel {
+
+        private final String[] columnNames = {"Done", "Requirement"};
+
+        @Override
+        public int getRowCount() {
+            return pendingItems.size();
+        }
+
+        @Override
+        public int getColumnCount() {
+            return columnNames.length;
+        }
+
+        @Override
+        public String getColumnName(int column) {
+            return columnNames[column];
+        }
+
+        @Override
+        public Class<?> getColumnClass(int columnIndex) {
+            return columnIndex == 0 ? Boolean.class : String.class;
+        }
+
+        @Override
+        public boolean isCellEditable(int rowIndex, int columnIndex) {
+            return columnIndex == 0;
+        }
+
+        @Override
+        public Object getValueAt(int rowIndex, int columnIndex) {
+            X9Item item = pendingItems.get(rowIndex);
+            return columnIndex == 0 ? item.isMarkAsDone() : item.toString();
+        }
+
+        @Override
+        public void setValueAt(Object value, int rowIndex, int columnIndex) {
+            if (columnIndex != 0) {
+                return;
+            }
+            pendingItems.get(rowIndex).setMarkAsDone(Boolean.TRUE.equals(value));
+            extension.persistX9Items();
+            fireTableCellUpdated(rowIndex, columnIndex);
+        }
     }
 
     public static String keyOf(X9Item item) {

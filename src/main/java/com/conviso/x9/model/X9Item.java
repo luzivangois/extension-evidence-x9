@@ -10,6 +10,7 @@ public final class X9Item {
     private String state = "DRAFT";
     private String sentAt = "";
     private String approvedBy = "";
+    private boolean markAsDone;
 
     public String getProjectId() {
         return projectId;
@@ -73,6 +74,15 @@ public final class X9Item {
 
     public void setApprovedBy(String approvedBy) {
         this.approvedBy = approvedBy;
+    }
+
+    /** When true, sending this item's evidence also transitions the requirement to DONE; otherwise it stays Running. */
+    public boolean isMarkAsDone() {
+        return markAsDone;
+    }
+
+    public void setMarkAsDone(boolean markAsDone) {
+        this.markAsDone = markAsDone;
     }
 
     @Override

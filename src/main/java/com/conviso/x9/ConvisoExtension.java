@@ -458,6 +458,9 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
                 if (requirementId.isEmpty()) {
                     throw new ConvisoApiException("Nao foi possivel identificar o requirement.");
                 }
+                if (!ensureRequirementRunning(requirementId)) {
+                    return;
+                }
 
                 String summary = "Foi identificada a seguinte vulnerabilidade que consta no link: " + buildVulnerabilityLink(record);
                 SwingUtilities.invokeLater(() -> {
@@ -465,10 +468,10 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
                     requirementsTab.selectRequirementById(requirementId);
                 });
 
-                apiClient.publishApprovedSummary(apiKey, requirementId, summary);
+                apiClient.markRequirementDone(apiKey, requirementId, summary, null);
 
                 SwingUtilities.invokeLater(() -> mainTabs.setSelectedIndex(1));
-                appendOutput("[+] Vulnerabilidade enviada diretamente para o requirement " + requirementId + ".");
+                appendOutput("[+] Vulnerabilidade enviada diretamente para o requirement " + requirementId + " (status alterado para Done).");
             } catch (ConvisoApiException | AiServiceException ex) {
                 appendOutput("[!] Erro ao incluir vulnerabilidade nos requirements: " + ex.getMessage());
                 showMessage("Falha ao incluir vulnerabilidade: " + ex.getMessage());
@@ -585,29 +588,68 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
             showMessage("Resumo vazio para requirement " + item.getRequirementId() + ".");
             return;
         }
+        if (!ensureRequirementRunning(item.getRequirementId())) {
+            return;
+        }
+
+        IHttpRequestResponse message = x9MessageRefs.get(X9Tab.keyOf(item));
+        if (message == null) {
+            showMessage("Sem evidencia de request/response disponivel para o requirement " + item.getRequirementId()
+                + " (referencia da mensagem original foi perdida, provavelmente por reinicio do Burp).");
+            return;
+        }
+
+        boolean markAsDone = item.isMarkAsDone();
 
         setBusy(true);
         backgroundExecutor.submit(() -> {
             try {
-                apiClient.publishApprovedSummary(apiKey, item.getRequirementId(), item.getSummary());
+                HttpEvidence evidence = evidenceExtractor.extract(message);
+                byte[] evidencePng = EvidenceScreenshotRenderer.renderRequestResponsePng(
+                    evidence.getMethod(), evidence.getUrl(), evidence.getFullRequest(), evidence.getFullResponse()
+                );
+
+                if (markAsDone) {
+                    apiClient.markRequirementDone(apiKey, item.getRequirementId(), item.getSummary(), evidencePng);
+                } else {
+                    apiClient.addRequirementAttachment(apiKey, item.getRequirementId(), item.getSummary(), evidencePng);
+                }
+
                 item.setState("SENT");
                 item.setSentAt(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(new Date()));
                 item.setApprovedBy(System.getProperty("user.name", "analyst"));
                 SwingUtilities.invokeLater(() -> x9Tab.notifyItemChanged(item));
 
-                IHttpRequestResponse message = x9MessageRefs.get(X9Tab.keyOf(item));
                 markAsSentInBurp(message, item.getRequirementId());
-                if (message == null) {
-                    appendOutput("[!] Sem referencia de mensagem no Proxy para aplicar highlight do requirement " + item.getRequirementId() + ".");
-                }
-                appendOutput("[+] Requirement " + item.getRequirementId() + " enviado para plataforma via X9.");
-            } catch (ConvisoApiException ex) {
+                appendOutput("[+] Requirement " + item.getRequirementId() + " enviado para plataforma via X9"
+                    + (markAsDone ? " (status alterado para Done)." : " (status permanece Running)."));
+            } catch (IOException | ConvisoApiException ex) {
                 appendOutput("[!] Erro ao enviar requirement " + item.getRequirementId() + ": " + ex.getMessage());
             } finally {
                 setBusy(false);
                 saveX9Items();
             }
         });
+    }
+
+    /** The extension only allows attaching evidence while a requirement is Running (IN_PROGRESS) on the platform, matching the platform's own rule. */
+    private boolean ensureRequirementRunning(String requirementId) {
+        RequirementItem requirement = findRequirementById(requirementId);
+        if (requirement == null) {
+            showMessage("Requirement " + requirementId + " nao encontrado no catalogo carregado. Recarregue os requirements em Requirements > Load requirements.");
+            return false;
+        }
+        if (!"IN_PROGRESS".equalsIgnoreCase(safe(requirement.getStatus()))) {
+            showMessage("Requirement " + requirementId + " precisa estar em Running na Conviso Platform para receber evidencia (status atual: "
+                + requirement.getStatus() + "). Altere o status na plataforma e recarregue os requirements.");
+            return false;
+        }
+        return true;
+    }
+
+    /** Lets UI classes persist X9 item edits (e.g. the "Done" checkbox) without exposing the local JSON storage details. */
+    public void persistX9Items() {
+        saveX9Items();
     }
 
     // ------------------------------------------------------------------

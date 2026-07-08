@@ -89,11 +89,28 @@ final class GraphQLQueries {
         "  }\n" +
         "}";
 
-    static final String UPDATE_ACTIVITY_MUTATION =
-        "mutation UpdateActivityStatus($id: ID!, $status: ActivityStatusEnum!, $reason: String) {\n" +
-        "  updateActivityStatus(input: { id: $id, status: $status, reason: $reason }) {\n" +
-        "    activity { id status title updatedAt }\n" +
+    static final String UPDATE_ACTIVITY_STATUS_MUTATION =
+        "mutation UpdateActivityStatus($input: UpdateActivityStatusInput!) {\n" +
+        "  updateActivityStatus(input: $input) {\n" +
+        "    clientMutationId\n" +
         "    errors\n" +
+        "    activity {\n" +
+        "      id\n" +
+        "      status\n" +
+        "      permittedStatus\n" +
+        "    }\n" +
+        "  }\n" +
+        "}";
+
+    static final String ADD_ACTIVITY_ATTACHMENT_MUTATION =
+        "mutation AddActivityAttachment($input: AddActivityAttachmentInput!) {\n" +
+        "  addActivityAttachment(input: $input) {\n" +
+        "    clientMutationId\n" +
+        "    errors\n" +
+        "    activity {\n" +
+        "      id\n" +
+        "      status\n" +
+        "    }\n" +
         "  }\n" +
         "}";
 

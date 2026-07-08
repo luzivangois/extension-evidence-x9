@@ -19,20 +19,24 @@ public final class AiService {
 
     private static final int SNIPPET_MAX_LENGTH = 1800;
 
+    private static final String REQUIREMENT_ANALYSIS_PROMPTS_PATH = "/ai-prompts/requirement-analysis.properties";
+
     private final AiProviderFactory providerFactory;
-    private final VulnerabilityFieldPrompts vulnerabilityFieldPrompts;
+    private final AiPromptConfig vulnerabilityFieldPrompts;
+    private final AiPromptConfig requirementAnalysisPrompts;
 
     public AiService() {
-        this(new AiProviderFactory(), new VulnerabilityFieldPrompts());
+        this(new AiProviderFactory(), new AiPromptConfig(), new AiPromptConfig(REQUIREMENT_ANALYSIS_PROMPTS_PATH));
     }
 
     public AiService(AiProviderFactory providerFactory) {
-        this(providerFactory, new VulnerabilityFieldPrompts());
+        this(providerFactory, new AiPromptConfig(), new AiPromptConfig(REQUIREMENT_ANALYSIS_PROMPTS_PATH));
     }
 
-    public AiService(AiProviderFactory providerFactory, VulnerabilityFieldPrompts vulnerabilityFieldPrompts) {
+    public AiService(AiProviderFactory providerFactory, AiPromptConfig vulnerabilityFieldPrompts, AiPromptConfig requirementAnalysisPrompts) {
         this.providerFactory = providerFactory;
         this.vulnerabilityFieldPrompts = vulnerabilityFieldPrompts;
+        this.requirementAnalysisPrompts = requirementAnalysisPrompts;
     }
 
     /**
@@ -165,35 +169,16 @@ public final class AiService {
         String requirementTitle,
         String requirementDescription
     ) throws AiServiceException {
-        String systemPrompt;
-        String userPrompt;
-        String method = evidence.getMethod();
-        String url = evidence.getUrl();
-        String status = evidence.getStatus();
+        Map<String, String> placeholders = new HashMap<>();
+        placeholders.put("requirementId", requirementId);
+        placeholders.put("method", evidence.getMethod());
+        placeholders.put("url", evidence.getUrl());
+        placeholders.put("requirementTitle", requirementTitle);
+        placeholders.put("requirementDescription", requirementDescription);
+        placeholders.put("status", evidence.getStatus());
 
-        if ("en".equals(language)) {
-            systemPrompt = "You are a pentest analyst writing concise customer-facing documentation in English.";
-            userPrompt =
-                "Generate exactly 3 short lines in English, without numbering, as pentest documentation for a client. " +
-                "Do not mention project id/number. Do not suggest improvements, recommendations, or next steps. " +
-                "Do not include request/response byte counts. " +
-                "State only what was tested and the documented result based on request/response evidence. " +
-                "Context: requirement=" + requirementId + ", method=" + method + ", url=" + url +
-                ", requirement_title=" + requirementTitle + ", requirement_description=" + requirementDescription +
-                ", status_http=" + status + ". " +
-                "Do not use markdown and do not add extra text outside the lines.";
-        } else {
-            systemPrompt = "Voce e analista de pentest escrevendo documentacao objetiva para cliente em portugues do Brasil.";
-            userPrompt =
-                "Gere exatamente 3 linhas curtas em portugues, sem numeracao, como documentacao de pentest para cliente. " +
-                "Nao mencione numero/id do projeto. Nao sugira melhorias, recomendacoes ou proximos passos. " +
-                "Nao inclua contagem de bytes de request/response. " +
-                "Registre apenas o que foi testado e o resultado documentado do teste com base nas evidencias de request/response. " +
-                "Contexto: requirement=" + requirementId + ", metodo=" + method + ", url=" + url +
-                ", requirement_titulo=" + requirementTitle + ", requirement_descricao=" + requirementDescription +
-                ", status_http=" + status + ". " +
-                "Nao use markdown e nao adicione texto fora das linhas.";
-        }
+        String systemPrompt = requirementAnalysisPrompts.systemPrompt("summary", language);
+        String userPrompt = requirementAnalysisPrompts.userPrompt("summary", language, placeholders);
 
         String content = providerFactory.forId(providerId).generateContent(aiApiKey, systemPrompt, userPrompt, 0.2, 220);
         String normalized = AiTextUtils.normalizeSummary(content);
