@@ -1,7 +1,6 @@
 package com.conviso.x9.ui;
 
 import com.conviso.x9.ConvisoExtension;
-import com.conviso.x9.model.RequirementFilterOption;
 import com.conviso.x9.model.RequirementItem;
 import com.conviso.x9.model.X9Item;
 
@@ -9,7 +8,6 @@ import javax.swing.BorderFactory;
 import javax.swing.DefaultListCellRenderer;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
-import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JPanel;
@@ -25,8 +23,10 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.FlowLayout;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /** Builds and owns the "X9" tab: the draft/sent evidence-summary queue for the selected project. */
 public final class X9Tab {
@@ -40,9 +40,8 @@ public final class X9Tab {
     private DefaultListModel<X9Item> sentModel;
     private JTable pendingTable;
     private JList<X9Item> sentList;
-    private JTextField projectFilterField;
-    private JComboBox<RequirementFilterOption> requirementFilter;
-    private JComboBox<String> stateFilter;
+    private JTextField projectDisplayField;
+    private JLabel requirementStatusSummaryLabel;
     private JTextArea summaryArea;
     private JLabel statusLabel;
     private X9Item selectedItem;
@@ -159,77 +158,54 @@ public final class X9Tab {
     }
 
     public void refreshViews() {
-        syncRequirementFilterOptions();
+        projectDisplayField.setText(extension.currentProjectDisplay());
+        requirementStatusSummaryLabel.setText(buildRequirementStatusSummary());
 
-        String projectFilter = safeLower(projectFilterField.getText().trim());
-        RequirementFilterOption selectedRequirement = (RequirementFilterOption) requirementFilter.getSelectedItem();
-        String requirementFilterId = selectedRequirement == null ? "ALL" : safe(selectedRequirement.getId());
-        String stateFilterValue = String.valueOf(stateFilter.getSelectedItem());
-
+        String currentProjectId = extension.currentProjectId();
         pendingItems.clear();
         sentModel.clear();
 
         for (int i = 0; i < model.size(); i++) {
             X9Item item = model.get(i);
-
-            boolean projectMatch = projectFilter.isEmpty()
-                || safeLower(item.getProjectId()).contains(projectFilter)
-                || safeLower(item.getTitle()).contains(projectFilter);
-            if (!projectMatch) {
+            if (!safe(item.getProjectId()).equals(currentProjectId)) {
                 continue;
             }
-            if (!"ALL".equals(stateFilterValue) && !safe(item.getState()).equals(stateFilterValue)) {
-                continue;
-            }
-
             if ("SENT".equals(item.getState())) {
                 sentModel.addElement(item);
             } else {
-                if (!"ALL".equals(requirementFilterId) && !safe(item.getRequirementId()).equals(requirementFilterId)) {
-                    continue;
-                }
                 pendingItems.add(item);
             }
         }
         pendingTableModel.fireTableDataChanged();
     }
 
-    private void syncRequirementFilterOptions() {
-        RequirementFilterOption selected = (RequirementFilterOption) requirementFilter.getSelectedItem();
-        String selectedId = selected == null ? "ALL" : safe(selected.getId());
+    private String buildRequirementStatusSummary() {
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        counts.put("NOT_STARTED", 0);
+        counts.put("IN_PROGRESS", 0);
+        counts.put("NOT_APPLICABLE", 0);
+        counts.put("DONE", 0);
+        counts.put("NOT_ACCORDING", 0);
 
-        requirementFilter.removeAllItems();
-        requirementFilter.addItem(new RequirementFilterOption("ALL", "Todos"));
-
-        List<String> seenIds = new ArrayList<>();
-
+        int total = 0;
         for (RequirementItem req : extension.requirementCatalog()) {
-            if (req == null || safe(req.getId()).isEmpty() || seenIds.contains(req.getId())) {
+            if (req == null) {
                 continue;
             }
-            requirementFilter.addItem(new RequirementFilterOption(req.getId(), req.toString()));
-            seenIds.add(req.getId());
-        }
-
-        for (int i = 0; i < model.size(); i++) {
-            X9Item item = model.get(i);
-            String reqId = safe(item.getRequirementId());
-            if (reqId.isEmpty() || seenIds.contains(reqId)) {
-                continue;
-            }
-            String label = "Req " + reqId + " - " + (safe(item.getTitle()).isEmpty() ? "(sem titulo)" : safe(item.getTitle()));
-            requirementFilter.addItem(new RequirementFilterOption(reqId, label));
-            seenIds.add(reqId);
-        }
-
-        for (int i = 0; i < requirementFilter.getItemCount(); i++) {
-            RequirementFilterOption option = requirementFilter.getItemAt(i);
-            if (option != null && safe(option.getId()).equals(selectedId)) {
-                requirementFilter.setSelectedIndex(i);
-                return;
+            total++;
+            String status = safe(req.getStatus()).toUpperCase(Locale.ROOT);
+            if (counts.containsKey(status)) {
+                counts.merge(status, 1, Integer::sum);
             }
         }
-        requirementFilter.setSelectedIndex(0);
+
+        StringBuilder summary = new StringBuilder("Requirements (").append(total).append("): ");
+        summary.append("To Do ").append(counts.getOrDefault("NOT_STARTED", 0)).append(" | ");
+        summary.append("Running ").append(counts.getOrDefault("IN_PROGRESS", 0)).append(" | ");
+        summary.append("Not Applicable ").append(counts.getOrDefault("NOT_APPLICABLE", 0)).append(" | ");
+        summary.append("Done ").append(counts.getOrDefault("DONE", 0)).append(" | ");
+        summary.append("Not According ").append(counts.getOrDefault("NOT_ACCORDING", 0));
+        return summary.toString();
     }
 
     private void updateSelection(X9Item item) {
@@ -251,11 +227,11 @@ public final class X9Tab {
         panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
-        JButton saveButton = new JButton("Salvar edicao");
-        JButton refreshAiButton = new JButton("Refresh IA");
-        JButton sendButton = new JButton("Enviar selecionado");
-        JButton sendAllButton = new JButton("Enviar pendentes");
-        JButton deleteButton = new JButton("Excluir selecionado");
+        JButton saveButton = new JButton("Salvar Edição");
+        JButton refreshAiButton = new JButton("Atualizar Análise de I.A");
+        JButton sendButton = new JButton("Enviar Selecionado");
+        JButton sendAllButton = new JButton("Enviar Todos");
+        JButton deleteButton = new JButton("Excluir Selecionado");
         toolbar.add(saveButton);
         toolbar.add(refreshAiButton);
         toolbar.add(sendButton);
@@ -268,21 +244,13 @@ public final class X9Tab {
         extension.registerBusyButton(deleteButton);
 
         JPanel filters = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
-        projectFilterField = new JTextField(18);
-        requirementFilter = new JComboBox<>();
-        stateFilter = new JComboBox<>(new String[]{"ALL", "DRAFT", "SENT"});
-        JButton applyFilterButton = new JButton("Aplicar filtro");
+        projectDisplayField = new JTextField(24);
+        projectDisplayField.setEditable(false);
+        requirementStatusSummaryLabel = new JLabel();
 
         filters.add(new JLabel("Projeto:"));
-        filters.add(projectFilterField);
-        filters.add(new JLabel("Requirement (Pendentes):"));
-        filters.add(requirementFilter);
-        filters.add(new JLabel("Estado:"));
-        filters.add(stateFilter);
-        filters.add(applyFilterButton);
-
-        requirementFilter.addItem(new RequirementFilterOption("ALL", "Todos"));
-        requirementFilter.setSelectedIndex(0);
+        filters.add(projectDisplayField);
+        filters.add(requirementStatusSummaryLabel);
 
         model = new DefaultListModel<>();
         sentModel = new DefaultListModel<>();
@@ -350,7 +318,6 @@ public final class X9Tab {
         sendButton.addActionListener(e -> extension.sendSelectedX9());
         sendAllButton.addActionListener(e -> extension.sendAllPendingX9());
         deleteButton.addActionListener(e -> extension.deleteSelectedX9Item());
-        applyFilterButton.addActionListener(e -> refreshViews());
 
         JPanel top = new JPanel(new BorderLayout(0, 6));
         top.add(toolbar, BorderLayout.NORTH);
@@ -441,9 +408,5 @@ public final class X9Tab {
 
     private static String safe(String value) {
         return value == null ? "" : value;
-    }
-
-    private static String safeLower(String value) {
-        return safe(value).toLowerCase(Locale.ROOT);
     }
 }

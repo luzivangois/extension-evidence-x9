@@ -189,6 +189,15 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
         return project != null ? project.getId() : settings.getProjectId();
     }
 
+    /** Human-friendly label for the currently selected project, for read-only display (e.g. the X9 tab). */
+    public String currentProjectDisplay() {
+        ProjectItem project = settingsTab.getSelectedProject();
+        if (project != null) {
+            return project.getDisplay();
+        }
+        return settings.getProjectId();
+    }
+
     public String currentRequirementId() {
         RequirementItem requirement = requirementsTab.selectedRequirement();
         return requirement == null ? "" : requirement.getId();
@@ -245,10 +254,12 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
         rootPanel = new JPanel(new BorderLayout());
 
         mainTabs = new JTabbedPane();
+        // settingsTab must exist before the other tabs: X9Tab (and potentially others) read
+        // the currently selected project from it as soon as they're constructed.
+        settingsTab = new SettingsTab(this);
         vulnerabilitiesTab = new VulnerabilitiesTab(this);
         requirementsTab = new RequirementsTab(this);
         x9Tab = new X9Tab(this);
-        settingsTab = new SettingsTab(this);
 
         mainTabs.addTab("Vulnerabilities", vulnerabilitiesTab.getPanel());
         mainTabs.addTab("Requirements", requirementsTab.getPanel());
@@ -345,6 +356,7 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
             settings.setProjectId(item.getId());
             settings.setRequirementId("");
         }
+        refreshX9Views();
     }
 
     // ------------------------------------------------------------------
