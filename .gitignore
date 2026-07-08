@@ -1,0 +1,8 @@
+target/
+._*
+.DS_Store
+*.class
+
+# Claude Code local tool config and project documentation
+.claude/
+CLAUDE.md
