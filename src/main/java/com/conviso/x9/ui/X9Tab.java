@@ -15,8 +15,8 @@ import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
-import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
+import javax.swing.border.EtchedBorder;
 import javax.swing.table.AbstractTableModel;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -40,7 +40,7 @@ public final class X9Tab {
     private DefaultListModel<X9Item> sentModel;
     private JTable pendingTable;
     private JList<X9Item> sentList;
-    private JTextField projectDisplayField;
+    private JLabel projectDisplayField;
     private JLabel requirementStatusSummaryLabel;
     private JTextArea summaryArea;
     private JLabel statusLabel;
@@ -244,8 +244,13 @@ public final class X9Tab {
         extension.registerBusyButton(deleteButton);
 
         JPanel filters = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
-        projectDisplayField = new JTextField(24);
-        projectDisplayField.setEditable(false);
+        projectDisplayField = new JLabel();
+        projectDisplayField.setOpaque(true);
+        projectDisplayField.setBackground(new Color(238, 238, 238));
+        projectDisplayField.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createEtchedBorder(EtchedBorder.LOWERED),
+            BorderFactory.createEmptyBorder(3, 8, 3, 8)
+        ));
         requirementStatusSummaryLabel = new JLabel();
 
         filters.add(new JLabel("Projeto:"));

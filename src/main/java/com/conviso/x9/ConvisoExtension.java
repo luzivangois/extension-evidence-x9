@@ -195,7 +195,8 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
         if (project != null) {
             return project.getDisplay();
         }
-        return settings.getProjectId();
+        String projectId = settings.getProjectId();
+        return projectId.isEmpty() ? "(nenhum projeto selecionado)" : projectId;
     }
 
     public String currentRequirementId() {
