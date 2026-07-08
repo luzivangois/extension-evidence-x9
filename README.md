@@ -98,10 +98,3 @@ contra a API real da Conviso ou dos provedores de IA.
    Platform.
 
 ---
-
-## Arquitetura
-
-Ver `CLAUDE.md` para o detalhamento completo dos pacotes
-(`api/`, `ai/`, `http/`, `evidence/`, `requirement/`, `vulnerability/`,
-`model/`, `settings/`, `logging/`, `ui/`) e das decisões de design tomadas ao
-reescrever este projeto a partir do `x9-ai-tp26/BurpExtension` original.
