@@ -672,7 +672,6 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
     public void stageInX9(IContextMenuInvocation invocation, String forcedRequirementId) {
         IHttpRequestResponse selectedMessage = getFirstSelectedMessage(invocation);
         String[] ids = invocation != null ? extractIdsFromSelectedRequest(invocation) : new String[]{"", ""};
-        boolean manualRequirementSelection = !forcedRequirementId.isEmpty();
 
         String projectId = !ids[0].isEmpty() ? ids[0] : currentProjectId();
         String requirementId = !forcedRequirementId.isEmpty()
@@ -703,11 +702,7 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
             // reuse/refresh the requirement's current placeholder draft instead of piling up empties.
             upsertX9Item(projectId, requirementId, summary, null);
         }
-        if (manualRequirementSelection) {
-            markAsRequirementInBurp(selectedMessage, requirementId);
-        } else {
-            markAsDraftInBurp(selectedMessage, requirementId);
-        }
+        markAsRequirementDraftInBurp(selectedMessage);
         settings.setProjectId(projectId);
         settings.setRequirementId(requirementId);
 
@@ -775,7 +770,7 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
                 evidence, requirement
             );
             addX9DraftItem(projectId, requirementId, summary, message);
-            markAsDraftInBurp(message, requirementId);
+            markAsRequirementDraftInBurp(message);
 
             organizedCount++;
             lastProjectId = projectId;
@@ -855,6 +850,7 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
         if (!result.isConfirmed()) {
             return;
         }
+        markAsVulnerabilityDraftInBurp(selectedMessage);
 
         setBusy(true);
         backgroundExecutor.submit(() -> {
@@ -957,7 +953,11 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
     }
 
     private void markAsVulnerabilityCreatedInBurp(IHttpRequestResponse message, String issueId) {
-        markInBurp(message, "red", "Vulnerability created (issue " + issueId + ")");
+        markInBurp(message, "red", "Created Vulnerability (Issue " + issueId + ")");
+    }
+
+    private void markAsVulnerabilityDraftInBurp(IHttpRequestResponse message) {
+        markInBurp(message, "gray", "Vulnerability in Draft");
     }
 
     private void registerCreatedVulnerability(String projectId, VulnerabilityDraft draft, String issueId) {
@@ -1168,15 +1168,11 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
     }
 
     private void markAsSentInBurp(IHttpRequestResponse message, String requirementId) {
-        markInBurp(message, "green", "Sent to Conviso Platform (requirement " + requirementId + ")");
+        markInBurp(message, "blue", "Requirement Evidence Submitted (Req " + requirementId + ")");
     }
 
-    private void markAsDraftInBurp(IHttpRequestResponse message, String requirementId) {
-        markInBurp(message, "green", "Draft in X9 (requirement " + requirementId + ")");
-    }
-
-    private void markAsRequirementInBurp(IHttpRequestResponse message, String requirementId) {
-        markInBurp(message, "red", "Requirement selected (requirement " + requirementId + ")");
+    private void markAsRequirementDraftInBurp(IHttpRequestResponse message) {
+        markInBurp(message, "gray", "Requirement in Draft");
     }
 
     private void markInBurp(IHttpRequestResponse message, String highlight, String note) {
