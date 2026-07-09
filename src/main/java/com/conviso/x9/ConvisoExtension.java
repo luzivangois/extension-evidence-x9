@@ -152,14 +152,23 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
         return items;
     }
 
-    /** Builds a "Requirements" submenu listing the loaded catalog, shared between the Proxy/Repeater context menu and the Vulnerabilities tab's own context menu. */
+    /**
+     * Builds a "Requirements" submenu listing the loaded catalog, shared between the Proxy/Repeater context
+     * menu and the Vulnerabilities tab's own context menu. Requirements not currently Running (IN_PROGRESS)
+     * on the platform are still listed (so their status stays visible, since {@link RequirementItem#toString()}
+     * includes it) but rendered disabled, matching the rule already enforced at send time ({@link #ensureRequirementRunning}).
+     */
     public JMenu buildRequirementsMenu(Consumer<RequirementItem> onRequirementSelected) {
         JMenu requirementsMenu = new JMenu("Requirements");
         List<RequirementItem> catalog = requirementCatalog();
         if (!catalog.isEmpty()) {
             for (RequirementItem requirement : catalog) {
+                boolean enabled = "IN_PROGRESS".equalsIgnoreCase(requirement.getStatus());
                 JMenuItem requirementItem = new JMenuItem(requirement.toString());
-                requirementItem.addActionListener(e -> onRequirementSelected.accept(requirement));
+                requirementItem.setEnabled(enabled);
+                if (enabled) {
+                    requirementItem.addActionListener(e -> onRequirementSelected.accept(requirement));
+                }
                 requirementsMenu.add(requirementItem);
             }
         } else {
