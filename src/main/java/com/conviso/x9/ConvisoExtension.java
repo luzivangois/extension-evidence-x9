@@ -358,6 +358,7 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
             settings.setRequirementId("");
         }
         refreshX9Views();
+        vulnerabilitiesTab.refreshStatus();
     }
 
     // ------------------------------------------------------------------
@@ -973,6 +974,7 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
         record.setDescription(safe(draft.getDescription()));
         record.setJustification(safe(draft.getStepsToReproduce()));
         record.setEvidence(safe(draft.getSummary()));
+        record.setStatus(safe(draft.getStatus()));
         record.setCreatedAt(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()));
 
         vulnerabilitiesTab.addOrMergeRecord(record);

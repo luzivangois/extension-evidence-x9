@@ -12,11 +12,15 @@ import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.ListSelectionModel;
+import javax.swing.border.EtchedBorder;
 import java.awt.BorderLayout;
-import java.awt.Font;
+import java.awt.Color;
 import java.awt.FlowLayout;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.TreeMap;
 
 /** Builds and owns the "Vulnerabilities" tab: the project's known findings, loaded from the platform. */
 public final class VulnerabilitiesTab {
@@ -26,7 +30,8 @@ public final class VulnerabilitiesTab {
 
     private DefaultListModel<VulnerabilityRecord> model;
     private JList<VulnerabilityRecord> list;
-    private JLabel statusLabel;
+    private JLabel projectDisplayField;
+    private JLabel vulnerabilityStatusSummaryLabel;
     private JButton includeButton;
 
     public VulnerabilitiesTab(ConvisoExtension extension) {
@@ -81,25 +86,38 @@ public final class VulnerabilitiesTab {
     }
 
     public void refreshStatus() {
-        statusLabel.setText("Total Vulnerabilities Loaded: " + model.size());
+        projectDisplayField.setText(extension.currentProjectDisplay());
+        vulnerabilityStatusSummaryLabel.setText(buildVulnerabilityStatusSummary());
         if (includeButton != null) {
             includeButton.setEnabled(list.getSelectedValue() != null);
         }
     }
 
+    private String buildVulnerabilityStatusSummary() {
+        Map<String, Integer> counts = new TreeMap<>();
+        for (int i = 0; i < model.size(); i++) {
+            String status = safe(model.get(i).getStatus()).trim().toUpperCase(Locale.ROOT);
+            counts.merge(status.isEmpty() ? "UNKNOWN" : status, 1, Integer::sum);
+        }
+
+        StringBuilder summary = new StringBuilder("Vulnerabilities (").append(model.size()).append(")");
+        if (!counts.isEmpty()) {
+            summary.append(": ");
+            boolean first = true;
+            for (Map.Entry<String, Integer> entry : counts.entrySet()) {
+                if (!first) {
+                    summary.append(" | ");
+                }
+                summary.append(entry.getKey()).append(" ").append(entry.getValue());
+                first = false;
+            }
+        }
+        return summary.toString();
+    }
+
     private JPanel build() {
         JPanel panel = new JPanel(new BorderLayout(8, 8));
         panel.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
-
-        JLabel title = new JLabel("Vulnerabilities");
-        title.setFont(new Font("SansSerif", Font.BOLD, 18));
-
-        statusLabel = new JLabel("Total Vulnerabilities Loaded: 0");
-        statusLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
-
-        JPanel top = new JPanel(new BorderLayout());
-        top.add(title, BorderLayout.WEST);
-        top.add(statusLabel, BorderLayout.EAST);
 
         JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         JButton loadButton = new JButton("Load Project Vulnerabilities");
@@ -109,6 +127,19 @@ public final class VulnerabilitiesTab {
         toolbar.add(includeButton);
         extension.registerBusyButton(loadButton);
         extension.registerBusyButton(includeButton);
+
+        projectDisplayField = new JLabel();
+        projectDisplayField.setOpaque(true);
+        projectDisplayField.setBackground(new Color(238, 238, 238));
+        projectDisplayField.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createEtchedBorder(EtchedBorder.LOWERED),
+            BorderFactory.createEmptyBorder(3, 8, 3, 8)
+        ));
+        vulnerabilityStatusSummaryLabel = new JLabel();
+
+        toolbar.add(new JLabel("Project:"));
+        toolbar.add(projectDisplayField);
+        toolbar.add(vulnerabilityStatusSummaryLabel);
 
         model = new DefaultListModel<>();
         list = new JList<>(model);
@@ -129,8 +160,8 @@ public final class VulnerabilitiesTab {
         body.add(toolbar, BorderLayout.NORTH);
         body.add(listScroll, BorderLayout.CENTER);
 
-        panel.add(top, BorderLayout.NORTH);
         panel.add(body, BorderLayout.CENTER);
+        refreshStatus();
         return panel;
     }
 

@@ -496,7 +496,7 @@ public final class ConvisoApiClient {
         }
         record.setEndpoint(endpoint);
 
-        record.setMethod(getString(obj, "status"));
+        record.setStatus(getString(obj, "status"));
         record.setCreatedAt(getString(obj, "createdAt"));
         return record;
     }

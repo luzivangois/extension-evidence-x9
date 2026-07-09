@@ -38,7 +38,7 @@ class ConvisoApiClientTest {
         assertEquals("Confirmed via error-based injection", record.getJustification());
         assertEquals("payload reflected", record.getEvidence());
         assertEquals("api.example.com/login", record.getEndpoint());
-        assertEquals("OPEN", record.getMethod());
+        assertEquals("OPEN", record.getStatus());
         assertEquals("2026-01-01T00:00:00Z", record.getCreatedAt());
     }
 
