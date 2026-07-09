@@ -1,6 +1,7 @@
 package com.conviso.x9.ui;
 
 import com.conviso.x9.ConvisoExtension;
+import com.conviso.x9.model.RequirementFilterOption;
 import com.conviso.x9.model.RequirementItem;
 import com.conviso.x9.model.X9Item;
 
@@ -8,6 +9,7 @@ import javax.swing.BorderFactory;
 import javax.swing.DefaultListCellRenderer;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JPanel;
@@ -42,10 +44,12 @@ public final class X9Tab {
     private JList<X9Item> sentList;
     private JLabel projectDisplayField;
     private JLabel requirementStatusSummaryLabel;
+    private JComboBox<RequirementFilterOption> requirementFilterCombo;
     private JTextArea summaryArea;
     private JLabel statusLabel;
     private X9Item selectedItem;
     private boolean suppressSelectionEvent;
+    private boolean suppressRequirementFilterEvent;
 
     public X9Tab(ConvisoExtension extension) {
         this.extension = extension;
@@ -160,14 +164,21 @@ public final class X9Tab {
     public void refreshViews() {
         projectDisplayField.setText(extension.currentProjectDisplay());
         requirementStatusSummaryLabel.setText(buildRequirementStatusSummary());
+        syncRequirementFilterOptions();
 
         String currentProjectId = extension.currentProjectId();
+        RequirementFilterOption selectedRequirement = (RequirementFilterOption) requirementFilterCombo.getSelectedItem();
+        String requirementFilterId = selectedRequirement == null ? "ALL" : safe(selectedRequirement.getId());
+
         pendingItems.clear();
         sentModel.clear();
 
         for (int i = 0; i < model.size(); i++) {
             X9Item item = model.get(i);
             if (!safe(item.getProjectId()).equals(currentProjectId)) {
+                continue;
+            }
+            if (!"ALL".equals(requirementFilterId) && !safe(item.getRequirementId()).equals(requirementFilterId)) {
                 continue;
             }
             if ("SENT".equals(item.getState())) {
@@ -177,6 +188,50 @@ public final class X9Tab {
             }
         }
         pendingTableModel.fireTableDataChanged();
+    }
+
+    /** Rebuilds the "Requirement" filter combo (applies to both Pendentes and Enviados) from the loaded catalog + any requirement ids already present in X9 items, preserving the current selection when possible. */
+    private void syncRequirementFilterOptions() {
+        RequirementFilterOption selected = (RequirementFilterOption) requirementFilterCombo.getSelectedItem();
+        String selectedId = selected == null ? "ALL" : safe(selected.getId());
+
+        suppressRequirementFilterEvent = true;
+        try {
+            requirementFilterCombo.removeAllItems();
+            requirementFilterCombo.addItem(new RequirementFilterOption("ALL", "Todos"));
+
+            List<String> seenIds = new ArrayList<>();
+
+            for (RequirementItem req : extension.requirementCatalog()) {
+                if (req == null || safe(req.getId()).isEmpty() || seenIds.contains(req.getId())) {
+                    continue;
+                }
+                requirementFilterCombo.addItem(new RequirementFilterOption(req.getId(), req.toString()));
+                seenIds.add(req.getId());
+            }
+
+            for (int i = 0; i < model.size(); i++) {
+                X9Item item = model.get(i);
+                String reqId = safe(item.getRequirementId());
+                if (reqId.isEmpty() || seenIds.contains(reqId)) {
+                    continue;
+                }
+                String label = "Req " + reqId + " - " + (safe(item.getTitle()).isEmpty() ? "(sem titulo)" : safe(item.getTitle()));
+                requirementFilterCombo.addItem(new RequirementFilterOption(reqId, label));
+                seenIds.add(reqId);
+            }
+
+            for (int i = 0; i < requirementFilterCombo.getItemCount(); i++) {
+                RequirementFilterOption option = requirementFilterCombo.getItemAt(i);
+                if (option != null && safe(option.getId()).equals(selectedId)) {
+                    requirementFilterCombo.setSelectedIndex(i);
+                    return;
+                }
+            }
+            requirementFilterCombo.setSelectedIndex(0);
+        } finally {
+            suppressRequirementFilterEvent = false;
+        }
     }
 
     private String buildRequirementStatusSummary() {
@@ -252,10 +307,14 @@ public final class X9Tab {
             BorderFactory.createEmptyBorder(3, 8, 3, 8)
         ));
         requirementStatusSummaryLabel = new JLabel();
+        requirementFilterCombo = new JComboBox<>();
+        requirementFilterCombo.addItem(new RequirementFilterOption("ALL", "Todos"));
 
         filters.add(new JLabel("Projeto:"));
         filters.add(projectDisplayField);
         filters.add(requirementStatusSummaryLabel);
+        filters.add(new JLabel("Requirement:"));
+        filters.add(requirementFilterCombo);
 
         model = new DefaultListModel<>();
         sentModel = new DefaultListModel<>();
@@ -315,6 +374,12 @@ public final class X9Tab {
             }
             if (pendingTable.getSelectedRow() < 0) {
                 updateSelection(null);
+            }
+        });
+
+        requirementFilterCombo.addActionListener(e -> {
+            if (!suppressRequirementFilterEvent) {
+                refreshViews();
             }
         });
 
