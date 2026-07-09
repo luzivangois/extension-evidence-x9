@@ -140,7 +140,7 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
         sendCurrent.addActionListener(e -> organizeSelectedTest(invocation));
         root.add(sendCurrent);
 
-        JMenuItem createVuln = new JMenuItem("Create vuln");
+        JMenuItem createVuln = new JMenuItem("Create Vuln");
         createVuln.addActionListener(e -> createVulnerabilityFromSelection(invocation));
         root.add(createVuln);
 
@@ -153,7 +153,7 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
                 requirementsMenu.add(requirementItem);
             }
         } else {
-            JMenuItem empty = new JMenuItem("No requirements loaded");
+            JMenuItem empty = new JMenuItem("No Requirements Loaded");
             empty.setEnabled(false);
             requirementsMenu.add(empty);
         }
@@ -196,7 +196,7 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
             return project.getDisplay();
         }
         String projectId = settings.getProjectId();
-        return projectId.isEmpty() ? "(nenhum projeto selecionado)" : projectId;
+        return projectId.isEmpty() ? "(no project selected)" : projectId;
     }
 
     public String currentRequirementId() {
@@ -280,19 +280,19 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
     public void testConnection() {
         String apiKey = settingsTab.readApiKey();
         if (apiKey.isEmpty()) {
-            showMessage("Informe a API Key.");
+            showMessage("Enter the API Key.");
             return;
         }
 
         setBusy(true);
-        appendOutput("[+] Testando conexao com a API...");
+        appendOutput("[+] Testing connection to the API...");
         backgroundExecutor.submit(() -> {
             try {
                 apiClient.fetchProjects(apiKey, settingsTab.currentCompanyId(), 1);
                 persistSettings();
-                appendOutput("[+] Conexao validada com sucesso.");
+                appendOutput("[+] Connection validated successfully.");
             } catch (ConvisoApiException ex) {
-                appendOutput("[!] Falha no teste: " + ex.getMessage());
+                appendOutput("[!] Test failed: " + ex.getMessage());
             } finally {
                 setBusy(false);
             }
@@ -302,20 +302,20 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
     public void testAiConnection() {
         String aiApiKey = settingsTab.readAiApiKey();
         if (aiApiKey.isEmpty()) {
-            showMessage("Informe a AI API Key.");
+            showMessage("Enter the AI API Key.");
             return;
         }
 
         String provider = settingsTab.currentAiProviderId();
         setBusy(true);
-        appendOutput("[+] Testando conexao com " + provider + "...");
+        appendOutput("[+] Testing connection to " + provider + "...");
         backgroundExecutor.submit(() -> {
             try {
                 aiService.validateApiKey(aiApiKey, provider);
                 persistSettings();
-                appendOutput("[+] " + provider + " validada com sucesso.");
+                appendOutput("[+] " + provider + " validated successfully.");
             } catch (AiServiceException ex) {
-                appendOutput("[!] Falha no teste da IA (" + provider + "): " + ex.getMessage());
+                appendOutput("[!] AI test failed (" + provider + "): " + ex.getMessage());
             } finally {
                 setBusy(false);
             }
@@ -327,24 +327,24 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
         String scopeId = settingsTab.currentCompanyId();
 
         if (apiKey.isEmpty()) {
-            showMessage("Informe a API Key.");
+            showMessage("Enter the API Key.");
             return;
         }
         if (scopeId.isEmpty()) {
-            showMessage("Informe o Company ID.");
+            showMessage("Enter the Company ID.");
             return;
         }
 
         setBusy(true);
-        appendOutput("[+] Carregando projetos...");
+        appendOutput("[+] Loading projects...");
         backgroundExecutor.submit(() -> {
             try {
                 JsonArray projects = apiClient.fetchProjects(apiKey, scopeId, 100);
                 SwingUtilities.invokeLater(() -> settingsTab.fillProjects(projects));
                 persistSettings();
-                appendOutput("[+] Projetos carregados: " + projects.size());
+                appendOutput("[+] Projects loaded: " + projects.size());
             } catch (ConvisoApiException ex) {
-                appendOutput("[!] Erro ao carregar projetos: " + ex.getMessage());
+                appendOutput("[!] Error loading projects: " + ex.getMessage());
             } finally {
                 setBusy(false);
             }
@@ -369,23 +369,23 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
         ProjectItem project = settingsTab.getSelectedProject();
 
         if (apiKey.isEmpty()) {
-            showMessage("Informe a API Key.");
+            showMessage("Enter the API Key.");
             return;
         }
         if (project == null) {
-            showMessage("Selecione um projeto na aba Settings.");
+            showMessage("Select a project in the Settings tab.");
             return;
         }
 
         setBusy(true);
-        appendOutput("[+] Carregando requirements do projeto " + project.getId() + "...");
+        appendOutput("[+] Loading requirements for project " + project.getId() + "...");
         backgroundExecutor.submit(() -> {
             try {
                 JsonArray requirements = apiClient.fetchRequirements(apiKey, project.getId());
                 SwingUtilities.invokeLater(() -> requirementsTab.fillRequirements(requirements));
-                appendOutput("[+] Requirements carregados: " + requirements.size());
+                appendOutput("[+] Requirements loaded: " + requirements.size());
             } catch (ConvisoApiException ex) {
-                appendOutput("[!] Erro ao carregar requirements: " + ex.getMessage());
+                appendOutput("[!] Error loading requirements: " + ex.getMessage());
             } finally {
                 setBusy(false);
             }
@@ -400,16 +400,16 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
         String apiKey = settingsTab.readApiKey();
         String projectId = currentProjectId();
         if (apiKey.isEmpty()) {
-            showMessage("Informe a API Key.");
+            showMessage("Enter the API Key.");
             return;
         }
         if (projectId.isEmpty()) {
-            showMessage("Selecione um projeto em Settings > Configuration.");
+            showMessage("Select a project in Settings > Configuration.");
             return;
         }
 
         setBusy(true);
-        appendOutput("[+] Carregando vulnerabilidades do projeto " + projectId + "...");
+        appendOutput("[+] Loading vulnerabilities for project " + projectId + "...");
         backgroundExecutor.submit(() -> {
             try {
                 JsonArray vulnerabilities = apiClient.fetchProjectVulnerabilities(apiKey, projectId, currentCompanyId());
@@ -425,10 +425,10 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
                     loadVulnerabilityItemsFromSettings();
                     vulnerabilitiesTab.refreshStatus();
                 });
-                appendOutput("[+] Vulnerabilidades carregadas: " + vulnerabilities.size());
+                appendOutput("[+] Vulnerabilities loaded: " + vulnerabilities.size());
             } catch (ConvisoApiException ex) {
-                appendOutput("[!] Erro ao carregar vulnerabilidades: " + ex.getMessage());
-                showMessage("Falha ao carregar vulnerabilidades: " + ex.getMessage());
+                appendOutput("[!] Error loading vulnerabilities: " + ex.getMessage());
+                showMessage("Failed to load vulnerabilities: " + ex.getMessage());
             } finally {
                 setBusy(false);
             }
@@ -438,19 +438,19 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
     public void includeSelectedVulnerabilityInRequirements() {
         VulnerabilityRecord record = vulnerabilitiesTab.getSelectedRecord();
         if (record == null) {
-            showMessage("Selecione uma vulnerabilidade.");
+            showMessage("Select a vulnerability.");
             return;
         }
 
         String apiKey = settingsTab.readApiKey();
         if (apiKey.isEmpty()) {
-            showMessage("Configure a API Key em Settings > Configuration.");
+            showMessage("Set the API Key in Settings > Configuration.");
             return;
         }
 
         String projectId = currentProjectId();
         if (projectId.isEmpty()) {
-            showMessage("Selecione um projeto em Settings > Configuration.");
+            showMessage("Select a project in Settings > Configuration.");
             return;
         }
 
@@ -459,7 +459,7 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
                 JsonArray requirements = apiClient.fetchRequirements(apiKey, projectId);
                 requirementsTab.fillRequirements(requirements);
             } catch (ConvisoApiException ex) {
-                showMessage("Falha ao carregar requirements: " + ex.getMessage());
+                showMessage("Failed to load requirements: " + ex.getMessage());
                 return;
             }
         }
@@ -469,13 +469,13 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
             try {
                 String requirementId = determineRequirementForVulnerability(record);
                 if (requirementId.isEmpty()) {
-                    throw new ConvisoApiException("Nao foi possivel identificar o requirement.");
+                    throw new ConvisoApiException("Could not identify the requirement.");
                 }
                 if (!ensureRequirementRunning(requirementId)) {
                     return;
                 }
 
-                String summary = "Foi identificada a seguinte vulnerabilidade que consta no link: " + buildVulnerabilityLink(record);
+                String summary = "The following vulnerability was identified at the link: " + buildVulnerabilityLink(record);
                 SwingUtilities.invokeLater(() -> {
                     settings.setRequirementId(requirementId);
                     requirementsTab.selectRequirementById(requirementId);
@@ -484,10 +484,10 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
                 apiClient.markRequirementDone(apiKey, requirementId, summary, null);
 
                 SwingUtilities.invokeLater(() -> mainTabs.setSelectedIndex(1));
-                appendOutput("[+] Vulnerabilidade enviada diretamente para o requirement " + requirementId + " (status alterado para Done).");
+                appendOutput("[+] Vulnerability sent directly to requirement " + requirementId + " (status changed to Done).");
             } catch (ConvisoApiException | AiServiceException ex) {
-                appendOutput("[!] Erro ao incluir vulnerabilidade nos requirements: " + ex.getMessage());
-                showMessage("Falha ao incluir vulnerabilidade: " + ex.getMessage());
+                appendOutput("[!] Error including vulnerability in requirements: " + ex.getMessage());
+                showMessage("Failed to include vulnerability: " + ex.getMessage());
             } finally {
                 setBusy(false);
             }
@@ -501,19 +501,19 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
     public void saveSelectedX9Summary() {
         X9Item item = x9Tab.getSelectedItem();
         if (item == null) {
-            showMessage("Selecione um item no X9.");
+            showMessage("Select an item in X9.");
             return;
         }
         item.setSummary(x9Tab.getSummaryText());
         x9Tab.notifyItemChanged(item);
         saveX9Items();
-        x9Tab.setStatus("Resumo salvo para requirement " + item.getRequirementId() + ".");
+        x9Tab.setStatus("Summary saved for requirement " + item.getRequirementId() + ".");
     }
 
     public void refreshSelectedX9WithAi() {
         X9Item item = x9Tab.getSelectedItem();
         if (item == null) {
-            showMessage("Selecione um item no X9.");
+            showMessage("Select an item in X9.");
             return;
         }
 
@@ -531,7 +531,7 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
                     item.setSummary(safe(refreshedSummary).trim());
                     x9Tab.notifyItemChanged(item);
                     saveX9Items();
-                    x9Tab.setStatus("Resumo atualizado com IA para requirement " + item.getRequirementId() + ".");
+                    x9Tab.setStatus("Summary updated with AI for requirement " + item.getRequirementId() + ".");
                 });
             } finally {
                 setBusy(false);
@@ -542,7 +542,7 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
     public void sendSelectedX9() {
         X9Item item = x9Tab.getSelectedItem();
         if (item == null) {
-            showMessage("Selecione um item no X9.");
+            showMessage("Select an item in X9.");
             return;
         }
         item.setSummary(x9Tab.getSummaryText());
@@ -557,7 +557,7 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
             }
         }
         if (pending.isEmpty()) {
-            showMessage("Nao ha itens pendentes no X9.");
+            showMessage("There are no pending items in X9.");
             return;
         }
         for (X9Item item : pending) {
@@ -568,15 +568,15 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
     public void deleteSelectedX9Item() {
         X9Item item = x9Tab.getSelectedItem();
         if (item == null) {
-            showMessage("Selecione um item no X9 para excluir.");
+            showMessage("Select an item in X9 to delete.");
             return;
         }
 
         String state = safe(item.getState()).isEmpty() ? "DRAFT" : item.getState();
         int decision = JOptionPane.showConfirmDialog(
             rootPanel,
-            "Excluir o requirement " + item.getRequirementId() + " do X9? Estado atual: " + state,
-            "Confirmar exclusao",
+            "Delete requirement " + item.getRequirementId() + " from X9? Current state: " + state,
+            "Confirm Deletion",
             JOptionPane.YES_NO_OPTION,
             JOptionPane.WARNING_MESSAGE
         );
@@ -588,17 +588,17 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
         x9Tab.removeItemByKey(key);
         x9MessageRefs.remove(key);
         saveX9Items();
-        appendOutput("[+] Requirement " + item.getRequirementId() + " removido do X9.");
+        appendOutput("[+] Requirement " + item.getRequirementId() + " removed from X9.");
     }
 
     private void publishX9Item(X9Item item) {
         String apiKey = settingsTab.readApiKey();
         if (apiKey.isEmpty()) {
-            showMessage("Configure a API Key em Settings > Configuration.");
+            showMessage("Set the API Key in Settings > Configuration.");
             return;
         }
         if (safe(item.getSummary()).trim().isEmpty()) {
-            showMessage("Resumo vazio para requirement " + item.getRequirementId() + ".");
+            showMessage("Empty summary for requirement " + item.getRequirementId() + ".");
             return;
         }
         if (!ensureRequirementRunning(item.getRequirementId())) {
@@ -607,8 +607,8 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
 
         IHttpRequestResponse message = x9MessageRefs.get(X9Tab.keyOf(item));
         if (message == null) {
-            showMessage("Sem evidencia de request/response disponivel para o requirement " + item.getRequirementId()
-                + " (referencia da mensagem original foi perdida, provavelmente por reinicio do Burp).");
+            showMessage("No request/response evidence available for requirement " + item.getRequirementId()
+                + " (the original message reference was lost, likely due to a Burp restart).");
             return;
         }
 
@@ -634,10 +634,10 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
                 SwingUtilities.invokeLater(() -> x9Tab.notifyItemChanged(item));
 
                 markAsSentInBurp(message, item.getRequirementId());
-                appendOutput("[+] Requirement " + item.getRequirementId() + " enviado para plataforma via X9"
-                    + (markAsDone ? " (status alterado para Done)." : " (status permanece Running)."));
+                appendOutput("[+] Requirement " + item.getRequirementId() + " sent to platform via X9"
+                    + (markAsDone ? " (status changed to Done)." : " (status remains Running)."));
             } catch (IOException | ConvisoApiException ex) {
-                appendOutput("[!] Erro ao enviar requirement " + item.getRequirementId() + ": " + ex.getMessage());
+                appendOutput("[!] Error sending requirement " + item.getRequirementId() + ": " + ex.getMessage());
             } finally {
                 setBusy(false);
                 saveX9Items();
@@ -649,12 +649,12 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
     private boolean ensureRequirementRunning(String requirementId) {
         RequirementItem requirement = findRequirementById(requirementId);
         if (requirement == null) {
-            showMessage("Requirement " + requirementId + " nao encontrado no catalogo carregado. Recarregue os requirements em Requirements > Load requirements.");
+            showMessage("Requirement " + requirementId + " not found in the loaded catalog. Reload the requirements in Requirements > Load Requirements.");
             return false;
         }
         if (!"IN_PROGRESS".equalsIgnoreCase(safe(requirement.getStatus()))) {
-            showMessage("Requirement " + requirementId + " precisa estar em Running na Conviso Platform para receber evidencia (status atual: "
-                + requirement.getStatus() + "). Altere o status na plataforma e recarregue os requirements.");
+            showMessage("Requirement " + requirementId + " needs to be Running on the Conviso Platform to receive evidence (current status: "
+                + requirement.getStatus() + "). Change the status on the platform and reload the requirements.");
             return false;
         }
         return true;
@@ -679,11 +679,11 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
             : (!ids[1].isEmpty() ? ids[1] : currentRequirementId());
 
         if (projectId.isEmpty()) {
-            showMessage("Selecione um projeto em Settings > Configuration.");
+            showMessage("Select a project in Settings > Configuration.");
             return;
         }
         if (requirementId.isEmpty()) {
-            showMessage("Selecione um requirement na aba Requirements.");
+            showMessage("Select a requirement in the Requirements tab.");
             return;
         }
 
@@ -706,35 +706,35 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
         settings.setProjectId(projectId);
         settings.setRequirementId(requirementId);
 
-        appendOutput("[+] Requirement " + requirementId + " foi para o X9 como rascunho.");
+        appendOutput("[+] Requirement " + requirementId + " was sent to X9 as a draft.");
         mainTabs.setSelectedIndex(2);
     }
 
     private void organizeSelectedTest(IContextMenuInvocation invocation) {
         IHttpRequestResponse[] selectedMessages = getSelectedMessages(invocation);
         if (selectedMessages.length == 0) {
-            showMessage("Selecione uma ou mais mensagens no Proxy para organizar.");
+            showMessage("Select one or more messages in the Proxy to organize.");
             return;
         }
 
         String projectFromSettings = currentProjectId();
         if (projectFromSettings.isEmpty()) {
-            showMessage("Selecione um projeto em Settings > Configuration.");
+            showMessage("Select a project in Settings > Configuration.");
             return;
         }
 
         if (requirementCatalog().isEmpty()) {
             String apiKey = settingsTab.readApiKey();
             if (apiKey.isEmpty()) {
-                showMessage("Configure a API Key e carregue os requirements antes de organizar.");
+                showMessage("Set the API Key and load the requirements before organizing.");
                 return;
             }
             try {
                 JsonArray requirements = apiClient.fetchRequirements(apiKey, projectFromSettings);
                 requirementsTab.fillRequirements(requirements);
-                appendOutput("[+] Requirements carregados automaticamente para o Organize.");
+                appendOutput("[+] Requirements loaded automatically for Organize.");
             } catch (ConvisoApiException ex) {
-                showMessage("Falha ao carregar requirements automaticamente: " + ex.getMessage());
+                showMessage("Failed to load requirements automatically: " + ex.getMessage());
                 return;
             }
         }
@@ -778,14 +778,14 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
         }
 
         if (organizedCount == 0) {
-            showMessage("Nenhum item foi organizado. Verifique se os requirements estao carregados.");
+            showMessage("No item was organized. Check whether the requirements are loaded.");
             return;
         }
 
         settings.setProjectId(lastProjectId);
         settings.setRequirementId(lastRequirementId);
 
-        appendOutput("[+] Organize concluido: " + organizedCount + " item(ns) organizado(s), " + skippedCount + " ignorado(s).");
+        appendOutput("[+] Organize complete: " + organizedCount + " item(s) organized, " + skippedCount + " skipped.");
         mainTabs.setSelectedIndex(2);
     }
 
@@ -807,7 +807,7 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
                     return aiChoice;
                 }
             } catch (AiServiceException ex) {
-                appendOutput("[!] Classificacao por IA indisponivel, usando fallback: " + ex.getMessage());
+                appendOutput("[!] AI classification unavailable, using fallback: " + ex.getMessage());
             }
         }
 
@@ -819,19 +819,19 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
     private void createVulnerabilityFromSelection(IContextMenuInvocation invocation) {
         IHttpRequestResponse selectedMessage = getFirstSelectedMessage(invocation);
         if (selectedMessage == null) {
-            showMessage("Selecione uma mensagem no Proxy para criar vulnerabilidade.");
+            showMessage("Select a message in the Proxy to create a vulnerability.");
             return;
         }
 
         String apiKey = settingsTab.readApiKey();
         if (apiKey.isEmpty()) {
-            showMessage("Configure a API Key em Settings > Configuration.");
+            showMessage("Set the API Key in Settings > Configuration.");
             return;
         }
 
         String projectId = currentProjectId();
         if (projectId.isEmpty()) {
-            showMessage("Selecione um projeto em Settings > Configuration.");
+            showMessage("Select a project in Settings > Configuration.");
             return;
         }
 
@@ -864,11 +864,11 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
                 }
 
                 SwingUtilities.invokeLater(() -> registerCreatedVulnerability(projectId, draft, issueId));
-                appendOutput("[+] Vulnerability enviada com sucesso para o projeto " + projectId + " (issue " + issueId + ").");
+                appendOutput("[+] Vulnerability successfully sent to project " + projectId + " (issue " + issueId + ").");
                 SwingUtilities.invokeLater(() -> mainTabs.setSelectedIndex(0));
             } catch (ConvisoApiException ex) {
-                appendOutput("[!] Erro ao criar vulnerabilidade: " + ex.getMessage());
-                showMessage("Falha ao criar vulnerabilidade: " + ex.getMessage());
+                appendOutput("[!] Error creating vulnerability: " + ex.getMessage());
+                showMessage("Failed to create vulnerability: " + ex.getMessage());
             } finally {
                 setBusy(false);
             }
@@ -882,7 +882,7 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
             );
             apiClient.uploadAttachment(apiKey, currentCompanyId(), issueId, "evidence.png", "image/png", png);
         } catch (IOException | ConvisoApiException ex) {
-            appendOutput("[!] Falha ao anexar evidencia automatica: " + ex.getMessage());
+            appendOutput("[!] Failed to attach automatic evidence: " + ex.getMessage());
         }
     }
 
@@ -893,7 +893,7 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
             apiClient.uploadAttachment(apiKey, currentCompanyId(), issueId, file.getName(),
                 contentType.isEmpty() ? "application/octet-stream" : contentType, bytes);
         } catch (IOException | ConvisoApiException ex) {
-            appendOutput("[!] Falha ao anexar arquivo " + file.getName() + ": " + ex.getMessage());
+            appendOutput("[!] Failed to attach file " + file.getName() + ": " + ex.getMessage());
         }
     }
 
@@ -905,7 +905,7 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
     public void fetchVulnerabilityTemplatesAsync(Consumer<List<VulnerabilityTemplateSummary>> onSuccess, Consumer<String> onError) {
         String apiKey = settingsTab.readApiKey();
         if (apiKey.isEmpty()) {
-            onError.accept("Informe a API Key em Settings > Configuration.");
+            onError.accept("Enter the API Key in Settings > Configuration.");
             return;
         }
         String companyId = currentCompanyId();
@@ -921,7 +921,7 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
     public void fetchVulnerabilityTemplateDetailAsync(String templateId, Consumer<VulnerabilityTemplateDetail> onSuccess, Consumer<String> onError) {
         String apiKey = settingsTab.readApiKey();
         if (apiKey.isEmpty()) {
-            onError.accept("Informe a API Key em Settings > Configuration.");
+            onError.accept("Enter the API Key in Settings > Configuration.");
             return;
         }
         backgroundExecutor.submit(() -> {
@@ -938,7 +938,7 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
     ) {
         String aiApiKey = settingsTab.readAiApiKey();
         if (aiApiKey.isEmpty()) {
-            onError.accept("Configure a AI API Key em Settings > Configuration.");
+            onError.accept("Set the AI API Key in Settings > Configuration.");
             return;
         }
         String providerId = settingsTab.currentAiProviderId();
@@ -1118,7 +1118,7 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
                 x9Tab.loadItemsSilently(java.util.Arrays.asList(items));
             }
         } catch (RuntimeException ex) {
-            logger.info("[!] Ignorando payload local de X9 malformado: " + ex.getMessage());
+            logger.info("[!] Ignoring malformed local X9 payload: " + ex.getMessage());
         }
     }
 
@@ -1140,7 +1140,7 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
                 }
             }
         } catch (RuntimeException ex) {
-            logger.info("[!] Ignorando payload local de vulnerabilidades malformado: " + ex.getMessage());
+            logger.info("[!] Ignoring malformed local vulnerabilities payload: " + ex.getMessage());
         } finally {
             vulnerabilitiesTab.refreshStatus();
         }

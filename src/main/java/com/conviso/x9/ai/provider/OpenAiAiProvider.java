@@ -42,13 +42,13 @@ public final class OpenAiAiProvider extends AbstractHttpAiProvider {
         try {
             parsed = JsonParser.parseString(body).getAsJsonObject();
         } catch (RuntimeException ex) {
-            throw new AiServiceException("Resposta invalida da OpenAI.", ex);
+            throw new AiServiceException("Invalid response from OpenAI.", ex);
         }
 
         JsonArray choices = parsed.has("choices") && parsed.get("choices").isJsonArray()
             ? parsed.getAsJsonArray("choices") : null;
         if (choices == null || choices.size() == 0) {
-            throw new AiServiceException("Resposta invalida da OpenAI.");
+            throw new AiServiceException("Invalid response from OpenAI.");
         }
         JsonObject first = choices.get(0).getAsJsonObject();
         JsonObject message = first.has("message") && first.get("message").isJsonObject()

@@ -81,7 +81,7 @@ public final class VulnerabilitiesTab {
     }
 
     public void refreshStatus() {
-        statusLabel.setText("Total de vulnerabilidades carregadas: " + model.size());
+        statusLabel.setText("Total Vulnerabilities Loaded: " + model.size());
         if (includeButton != null) {
             includeButton.setEnabled(list.getSelectedValue() != null);
         }
@@ -94,7 +94,7 @@ public final class VulnerabilitiesTab {
         JLabel title = new JLabel("Vulnerabilities");
         title.setFont(new Font("SansSerif", Font.BOLD, 18));
 
-        statusLabel = new JLabel("Total de vulnerabilidades carregadas: 0");
+        statusLabel = new JLabel("Total Vulnerabilities Loaded: 0");
         statusLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
 
         JPanel top = new JPanel(new BorderLayout());
@@ -102,8 +102,8 @@ public final class VulnerabilitiesTab {
         top.add(statusLabel, BorderLayout.EAST);
 
         JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
-        JButton loadButton = new JButton("Load project vulnerabilities");
-        includeButton = new JButton("Follow requeriment");
+        JButton loadButton = new JButton("Load Project Vulnerabilities");
+        includeButton = new JButton("Follow Requirement");
         includeButton.setEnabled(false);
         toolbar.add(loadButton);
         toolbar.add(includeButton);
@@ -115,7 +115,7 @@ public final class VulnerabilitiesTab {
         list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 
         JScrollPane listScroll = new JScrollPane(list);
-        listScroll.setBorder(BorderFactory.createTitledBorder("Vulnerabilidades do projeto"));
+        listScroll.setBorder(BorderFactory.createTitledBorder("Project Vulnerabilities"));
 
         loadButton.addActionListener(e -> extension.loadProjectVulnerabilities());
         includeButton.addActionListener(e -> extension.includeSelectedVulnerabilityInRequirements());

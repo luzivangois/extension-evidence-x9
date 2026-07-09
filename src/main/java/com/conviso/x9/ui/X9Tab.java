@@ -198,7 +198,7 @@ public final class X9Tab {
         suppressRequirementFilterEvent = true;
         try {
             requirementFilterCombo.removeAllItems();
-            requirementFilterCombo.addItem(new RequirementFilterOption("ALL", "Todos"));
+            requirementFilterCombo.addItem(new RequirementFilterOption("ALL", "All"));
 
             List<String> seenIds = new ArrayList<>();
 
@@ -267,14 +267,14 @@ public final class X9Tab {
         selectedItem = item;
         if (item == null) {
             summaryArea.setText("");
-            statusLabel.setText("Nenhum item selecionado.");
+            statusLabel.setText("No item selected.");
             return;
         }
         summaryArea.setText(safe(item.getSummary()));
         String stamp = safe(item.getSentAt()).isEmpty() ? "-" : item.getSentAt();
         String approver = safe(item.getApprovedBy()).isEmpty() ? "-" : item.getApprovedBy();
-        statusLabel.setText("Projeto: " + item.getProjectId() + " | Requirement: " + item.getRequirementId()
-            + " | Estado: " + item.getState() + " | SentAt: " + stamp + " | Aprovador: " + approver);
+        statusLabel.setText("Project: " + item.getProjectId() + " | Requirement: " + item.getRequirementId()
+            + " | State: " + item.getState() + " | SentAt: " + stamp + " | Approver: " + approver);
     }
 
     private JPanel build() {
@@ -282,11 +282,11 @@ public final class X9Tab {
         panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
-        JButton saveButton = new JButton("Salvar Edição");
-        JButton refreshAiButton = new JButton("Atualizar Análise de I.A");
-        JButton sendButton = new JButton("Enviar Selecionado");
-        JButton sendAllButton = new JButton("Enviar Todos");
-        JButton deleteButton = new JButton("Excluir Selecionado");
+        JButton saveButton = new JButton("Save Edit");
+        JButton refreshAiButton = new JButton("Update AI Analysis");
+        JButton sendButton = new JButton("Send Selected");
+        JButton sendAllButton = new JButton("Send All");
+        JButton deleteButton = new JButton("Delete Selected");
         toolbar.add(saveButton);
         toolbar.add(refreshAiButton);
         toolbar.add(sendButton);
@@ -308,9 +308,9 @@ public final class X9Tab {
         ));
         requirementStatusSummaryLabel = new JLabel();
         requirementFilterCombo = new JComboBox<>();
-        requirementFilterCombo.addItem(new RequirementFilterOption("ALL", "Todos"));
+        requirementFilterCombo.addItem(new RequirementFilterOption("ALL", "All"));
 
-        filters.add(new JLabel("Projeto:"));
+        filters.add(new JLabel("Project:"));
         filters.add(projectDisplayField);
         filters.add(requirementStatusSummaryLabel);
         filters.add(new JLabel("Requirement:"));
@@ -331,9 +331,9 @@ public final class X9Tab {
         sentList.setCellRenderer(buildSentRenderer());
 
         JScrollPane pendingScroll = new JScrollPane(pendingTable);
-        pendingScroll.setBorder(BorderFactory.createTitledBorder("Pendentes"));
+        pendingScroll.setBorder(BorderFactory.createTitledBorder("Pending"));
         JScrollPane sentScroll = new JScrollPane(sentList);
-        sentScroll.setBorder(BorderFactory.createTitledBorder("Enviados"));
+        sentScroll.setBorder(BorderFactory.createTitledBorder("Sent"));
 
         JSplitPane leftSplit = new JSplitPane(JSplitPane.VERTICAL_SPLIT, pendingScroll, sentScroll);
         leftSplit.setResizeWeight(0.55);
@@ -342,7 +342,7 @@ public final class X9Tab {
         summaryArea.setLineWrap(true);
         summaryArea.setWrapStyleWord(true);
 
-        statusLabel = new JLabel("Nenhum item selecionado.");
+        statusLabel = new JLabel("No item selected.");
 
         JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftSplit, new JScrollPane(summaryArea));
         split.setResizeWeight(0.40);

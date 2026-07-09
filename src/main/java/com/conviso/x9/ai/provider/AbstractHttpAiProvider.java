@@ -17,7 +17,7 @@ abstract class AbstractHttpAiProvider implements AiProvider {
         try {
             response = JsonHttpClient.post(url, headers, jsonBody);
         } catch (IOException ex) {
-            throw new AiServiceException("Falha de rede ao chamar a IA: " + ex.getMessage(), ex);
+            throw new AiServiceException("Network failure while calling the AI: " + ex.getMessage(), ex);
         }
         if (!response.isSuccess()) {
             throw new AiServiceException("HTTP " + response.getStatus() + ": " + AiTextUtils.extractApiErrorMessage(response.getBody()));

@@ -97,8 +97,8 @@ public final class RequirementsTab {
         panel.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
 
         JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
-        JButton loadRequirementsButton = new JButton("Load requirements");
-        JButton clearButton = new JButton("Clear output");
+        JButton loadRequirementsButton = new JButton("Load Requirements");
+        JButton clearButton = new JButton("Clear Output");
         toolbar.add(loadRequirementsButton);
         toolbar.add(clearButton);
         extension.registerBusyButton(loadRequirementsButton);
@@ -122,7 +122,7 @@ public final class RequirementsTab {
         String savedRequirementId = extension.getSettings().getRequirementId();
         if (!savedRequirementId.isEmpty()) {
             suppressSelectionEvent = true;
-            model.addElement(new RequirementItem(savedRequirementId, "saved", "Requirement salvo", ""));
+            model.addElement(new RequirementItem(savedRequirementId, "saved", "Saved Requirement", ""));
             list.setSelectedIndex(0);
             suppressSelectionEvent = false;
         }

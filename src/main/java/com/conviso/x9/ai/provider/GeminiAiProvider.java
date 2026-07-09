@@ -40,13 +40,13 @@ public final class GeminiAiProvider extends AbstractHttpAiProvider {
         try {
             parsed = JsonParser.parseString(body).getAsJsonObject();
         } catch (RuntimeException ex) {
-            throw new AiServiceException("Resposta invalida da Gemini.", ex);
+            throw new AiServiceException("Invalid response from Gemini.", ex);
         }
 
         JsonArray candidates = parsed.has("candidates") && parsed.get("candidates").isJsonArray()
             ? parsed.getAsJsonArray("candidates") : null;
         if (candidates == null || candidates.size() == 0) {
-            throw new AiServiceException("Resposta invalida da Gemini.");
+            throw new AiServiceException("Invalid response from Gemini.");
         }
         JsonObject first = candidates.get(0).getAsJsonObject();
         JsonObject content = first.has("content") && first.get("content").isJsonObject()

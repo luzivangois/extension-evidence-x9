@@ -145,7 +145,7 @@ public final class AiService {
         String content = providerFactory.forId(providerId).generateContent(aiApiKey, systemPrompt, userPrompt, 0.2, 420);
         String normalized = safe(content).trim();
         if (normalized.isEmpty()) {
-            throw new AiServiceException("Campo IA vazio para " + field);
+            throw new AiServiceException("Empty AI field for " + field);
         }
         return normalized;
     }
@@ -153,10 +153,10 @@ public final class AiService {
     /** Throws {@link AiServiceException} unless the provider returns a non-empty response for the given key. */
     public void validateApiKey(String aiApiKey, String providerId) throws AiServiceException {
         String content = providerFactory.forId(providerId).generateContent(
-            aiApiKey, "Respond with a single token.", "Responda apenas com a palavra OK.", 0.0, 16
+            aiApiKey, "Respond with a single token.", "Reply only with the word OK.", 0.0, 16
         );
         if (safe(content).trim().isEmpty()) {
-            throw new AiServiceException("Resposta invalida da IA.");
+            throw new AiServiceException("Invalid response from the AI.");
         }
     }
 
@@ -183,7 +183,7 @@ public final class AiService {
         String content = providerFactory.forId(providerId).generateContent(aiApiKey, systemPrompt, userPrompt, 0.2, 220);
         String normalized = AiTextUtils.normalizeSummary(content);
         if (normalized.isEmpty()) {
-            throw new AiServiceException("Resumo IA vazio");
+            throw new AiServiceException("Empty AI summary");
         }
         return normalized;
     }

@@ -40,13 +40,13 @@ public final class ClaudeAiProvider extends AbstractHttpAiProvider {
         try {
             parsed = JsonParser.parseString(body).getAsJsonObject();
         } catch (RuntimeException ex) {
-            throw new AiServiceException("Resposta invalida da Claude.", ex);
+            throw new AiServiceException("Invalid response from Claude.", ex);
         }
 
         JsonArray content = parsed.has("content") && parsed.get("content").isJsonArray()
             ? parsed.getAsJsonArray("content") : null;
         if (content == null || content.size() == 0) {
-            throw new AiServiceException("Resposta invalida da Claude.");
+            throw new AiServiceException("Invalid response from Claude.");
         }
 
         StringBuilder text = new StringBuilder();

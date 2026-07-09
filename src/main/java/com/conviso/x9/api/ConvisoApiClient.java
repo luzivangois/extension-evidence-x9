@@ -115,7 +115,7 @@ public final class ConvisoApiClient {
 
     public JsonArray fetchProjectVulnerabilities(String apiKey, String projectId, String companyId) throws ConvisoApiException {
         if (companyId == null || companyId.trim().isEmpty()) {
-            throw new ConvisoApiException("Informe o Company ID em Settings > Configuration.");
+            throw new ConvisoApiException("Enter the Company ID in Settings > Configuration.");
         }
 
         JsonObject pagination = new JsonObject();
@@ -224,7 +224,7 @@ public final class ConvisoApiClient {
         JsonObject data = response.getAsJsonObject("data");
         JsonObject obj = data == null ? null : data.getAsJsonObject("vulnerabilityTemplate");
         if (obj == null) {
-            throw new ConvisoApiException("Template de vulnerabilidade nao encontrado: " + templateId);
+            throw new ConvisoApiException("Vulnerability template not found: " + templateId);
         }
 
         VulnerabilityTemplateDetail detail = new VulnerabilityTemplateDetail();
@@ -292,7 +292,7 @@ public final class ConvisoApiClient {
         JsonObject issue = created == null ? null : created.getAsJsonObject("issue");
         String issueId = issue == null ? "" : getString(issue, "id");
         if (issueId.isEmpty()) {
-            throw new ConvisoApiException("Resposta da Conviso Platform nao trouxe o id da vulnerabilidade criada.");
+            throw new ConvisoApiException("The Conviso Platform response did not include the created vulnerability's id.");
         }
         return issueId;
     }
@@ -336,14 +336,14 @@ public final class ConvisoApiClient {
                 API_URL, headers, gson.toJson(operations), gson.toJson(map), "1", fileName, contentType, fileBytes
             );
         } catch (IOException ex) {
-            throw new ConvisoApiException("Falha de rede ao anexar evidencia na Conviso Platform: " + ex.getMessage(), ex);
+            throw new ConvisoApiException("Network failure while attaching evidence to the Conviso Platform: " + ex.getMessage(), ex);
         }
 
         JsonObject parsed;
         try {
             parsed = JsonParser.parseString(response.getBody()).getAsJsonObject();
         } catch (RuntimeException ex) {
-            throw new ConvisoApiException("Resposta invalida da Conviso Platform ao anexar evidencia (HTTP " + response.getStatus() + ")", ex);
+            throw new ConvisoApiException("Invalid response from the Conviso Platform while attaching evidence (HTTP " + response.getStatus() + ")", ex);
         }
         if (parsed.has("errors") && !parsed.get("errors").isJsonNull()) {
             throw new ConvisoApiException(parsed.get("errors").toString());
@@ -444,14 +444,14 @@ public final class ConvisoApiClient {
                 API_URL, headers, gson.toJson(operations), gson.toJson(map), "1", fileName, contentType, fileBytes
             );
         } catch (IOException ex) {
-            throw new ConvisoApiException("Falha de rede ao enviar evidencia para o requirement: " + ex.getMessage(), ex);
+            throw new ConvisoApiException("Network failure while sending evidence to the requirement: " + ex.getMessage(), ex);
         }
 
         JsonObject parsed;
         try {
             parsed = JsonParser.parseString(response.getBody()).getAsJsonObject();
         } catch (RuntimeException ex) {
-            throw new ConvisoApiException("Resposta invalida da Conviso Platform (HTTP " + response.getStatus() + ")", ex);
+            throw new ConvisoApiException("Invalid response from the Conviso Platform (HTTP " + response.getStatus() + ")", ex);
         }
         if (parsed.has("errors") && !parsed.get("errors").isJsonNull()) {
             throw new ConvisoApiException(parsed.get("errors").toString());
@@ -512,14 +512,14 @@ public final class ConvisoApiClient {
         try {
             response = JsonHttpClient.post(API_URL, headers, gson.toJson(payload));
         } catch (IOException ex) {
-            throw new ConvisoApiException("Falha de rede ao chamar a Conviso Platform: " + ex.getMessage(), ex);
+            throw new ConvisoApiException("Network failure while calling the Conviso Platform: " + ex.getMessage(), ex);
         }
 
         JsonObject parsed;
         try {
             parsed = JsonParser.parseString(response.getBody()).getAsJsonObject();
         } catch (RuntimeException ex) {
-            throw new ConvisoApiException("Resposta invalida da Conviso Platform (HTTP " + response.getStatus() + ")", ex);
+            throw new ConvisoApiException("Invalid response from the Conviso Platform (HTTP " + response.getStatus() + ")", ex);
         }
 
         if (parsed.has("errors") && !parsed.get("errors").isJsonNull()) {

@@ -50,7 +50,7 @@ public final class AiTextUtils {
     /** Extracts a human-readable error message from a provider's JSON error body, falling back to a raw snippet. */
     public static String extractApiErrorMessage(String body) {
         if (body == null || body.trim().isEmpty()) {
-            return "sem detalhes retornados pela API";
+            return "no details returned by the API";
         }
         try {
             JsonObject parsed = JsonParser.parseString(body).getAsJsonObject();

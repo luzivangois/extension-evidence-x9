@@ -179,7 +179,7 @@ public final class SettingsTab {
         centered.setBorder(BorderFactory.createEmptyBorder(30, 60, 30, 60));
         centered.setBackground(new Color(245, 247, 250));
 
-        JLabel subtitle = new JLabel("Burp Suite plugin for Conviso Platform", SwingConstants.CENTER);
+        JLabel subtitle = new JLabel("Burp Suite Plugin For Conviso Platform", SwingConstants.CENTER);
         subtitle.setFont(new Font("SansSerif", Font.PLAIN, 16));
         subtitle.setAlignmentX(Component.CENTER_ALIGNMENT);
 
@@ -218,27 +218,27 @@ public final class SettingsTab {
         apiKeyField = new JPasswordField(settings.getApiKey(), 60);
         aiApiKeyField = new JPasswordField(settings.getAiApiKey(), 60);
         aiProviderCombo = new JComboBox<>();
-        aiProviderCombo.addItem(new AiProviderOption("openai", "OpenIA"));
+        aiProviderCombo.addItem(new AiProviderOption("openai", "OpenAI"));
         aiProviderCombo.addItem(new AiProviderOption("claude", "Claude"));
         aiProviderCombo.addItem(new AiProviderOption("gemini", "Gemini"));
         selectAiProviderById(settings.getAiProvider().isEmpty() ? "gemini" : settings.getAiProvider());
-        englishReportCheckbox = new JCheckBox("English (unchecked = Portugues)");
+        englishReportCheckbox = new JCheckBox("English (Unchecked = Portuguese)");
         englishReportCheckbox.setSelected("en".equalsIgnoreCase(settings.getReportLanguage()));
         englishReportCheckbox.setOpaque(false);
         companyIdField = new JTextField(settings.getScopeId(), 20);
         projectCombo = new JComboBox<>();
         projectCombo.setEditable(true);
-        projectCombo.setPrototypeDisplayValue(new ProjectItem("99999", "99999 - PRJ-99999 - Projeto Exemplo Muito Grande", "Projeto Exemplo Muito Grande", "PRJ-99999"));
+        projectCombo.setPrototypeDisplayValue(new ProjectItem("99999", "99999 - PRJ-99999 - Very Large Example Project", "Very Large Example Project", "PRJ-99999"));
 
         String savedProjectId = settings.getProjectId();
         if (!savedProjectId.isEmpty()) {
-            projectCombo.addItem(new ProjectItem(savedProjectId, savedProjectId + " - projeto salvo", "", ""));
+            projectCombo.addItem(new ProjectItem(savedProjectId, savedProjectId + " - saved project", "", ""));
             projectCombo.setSelectedIndex(0);
         }
 
         testButton = new JButton("Test");
-        testAiButton = new JButton("Test IA");
-        loadProjectsButton = new JButton("Load projects");
+        testAiButton = new JButton("Test AI");
+        loadProjectsButton = new JButton("Load Projects");
         extension.registerBusyButton(testButton);
         extension.registerBusyButton(testAiButton);
         extension.registerBusyButton(loadProjectsButton);
@@ -265,7 +265,7 @@ public final class SettingsTab {
         gbc.gridwidth = 1;
 
         gbc.gridx = 0; gbc.gridy = 3; gbc.weightx = 0;
-        form.add(new JLabel("Summary language"), gbc);
+        form.add(new JLabel("Summary Language"), gbc);
         gbc.gridx = 1; gbc.gridwidth = 2; gbc.weightx = 1.0;
         form.add(englishReportCheckbox, gbc);
         gbc.gridwidth = 1;

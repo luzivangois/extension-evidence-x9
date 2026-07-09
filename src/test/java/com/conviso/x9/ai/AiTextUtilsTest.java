@@ -48,7 +48,7 @@ class AiTextUtilsTest {
 
     @Test
     void returnsPlaceholderForBlankBody() {
-        assertEquals("sem detalhes retornados pela API", AiTextUtils.extractApiErrorMessage(""));
-        assertEquals("sem detalhes retornados pela API", AiTextUtils.extractApiErrorMessage(null));
+        assertEquals("no details returned by the API", AiTextUtils.extractApiErrorMessage(""));
+        assertEquals("no details returned by the API", AiTextUtils.extractApiErrorMessage(null));
     }
 }
