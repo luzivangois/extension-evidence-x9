@@ -39,6 +39,51 @@ public final class EvidenceScreenshotRenderer {
         sectionHeader.add(false);
         addSection(lines, sectionHeader, "RESPONSE", safe(response));
 
+        return renderPng(lines, sectionHeader);
+    }
+
+    /** Renders a vulnerability's Title/Description/Summary/Severity as the same terminal-style PNG, used as the evidence automatically attached when linking a vulnerability to a requirement. */
+    public static byte[] renderVulnerabilitySummaryPng(String title, String description, String summary, String severity) throws IOException {
+        List<String> lines = new ArrayList<>();
+        List<Boolean> sectionHeader = new ArrayList<>();
+
+        addSection(lines, sectionHeader, "TITLE", stripHtml(title));
+        lines.add("");
+        sectionHeader.add(false);
+        addSection(lines, sectionHeader, "DESCRIPTION", stripHtml(description));
+        lines.add("");
+        sectionHeader.add(false);
+        addSection(lines, sectionHeader, "SUMMARY", stripHtml(summary));
+        lines.add("");
+        sectionHeader.add(false);
+        addSection(lines, sectionHeader, "SEVERITY", stripHtml(severity));
+
+        return renderPng(lines, sectionHeader);
+    }
+
+    /**
+     * Vulnerability template fields (e.g. description) come from the Conviso Platform as rich-text
+     * HTML (e.g. {@code <p>...</p>}), which would otherwise render as literal tags in the PNG.
+     */
+    static String stripHtml(String html) {
+        if (html == null) {
+            return "";
+        }
+        return html
+            .replaceAll("(?i)<\\s*br\\s*/?\\s*>", "\n")
+            .replaceAll("(?i)<\\s*/(p|li|div|h[1-6])\\s*>", "\n\n")
+            .replaceAll("(?i)<[^>]+>", "")
+            .replace("&nbsp;", " ")
+            .replace("&amp;", "&")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&quot;", "\"")
+            .replace("&#39;", "'")
+            .replaceAll("\n{3,}", "\n\n")
+            .trim();
+    }
+
+    private static byte[] renderPng(List<String> lines, List<Boolean> sectionHeader) throws IOException {
         Font font = new Font(Font.MONOSPACED, Font.PLAIN, FONT_SIZE);
         Font boldFont = font.deriveFont(Font.BOLD);
 

@@ -9,13 +9,17 @@ import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JList;
+import javax.swing.JMenu;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.ListSelectionModel;
 import javax.swing.border.EtchedBorder;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.FlowLayout;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -32,7 +36,6 @@ public final class VulnerabilitiesTab {
     private JList<VulnerabilityRecord> list;
     private JLabel projectDisplayField;
     private JLabel vulnerabilityStatusSummaryLabel;
-    private JButton includeButton;
 
     public VulnerabilitiesTab(ConvisoExtension extension) {
         this.extension = extension;
@@ -88,9 +91,6 @@ public final class VulnerabilitiesTab {
     public void refreshStatus() {
         projectDisplayField.setText(extension.currentProjectDisplay());
         vulnerabilityStatusSummaryLabel.setText(buildVulnerabilityStatusSummary());
-        if (includeButton != null) {
-            includeButton.setEnabled(list.getSelectedValue() != null);
-        }
     }
 
     private String buildVulnerabilityStatusSummary() {
@@ -121,12 +121,8 @@ public final class VulnerabilitiesTab {
 
         JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         JButton loadButton = new JButton("Load Project Vulnerabilities");
-        includeButton = new JButton("Follow Requirement");
-        includeButton.setEnabled(false);
         toolbar.add(loadButton);
-        toolbar.add(includeButton);
         extension.registerBusyButton(loadButton);
-        extension.registerBusyButton(includeButton);
 
         projectDisplayField = new JLabel();
         projectDisplayField.setOpaque(true);
@@ -149,10 +145,34 @@ public final class VulnerabilitiesTab {
         listScroll.setBorder(BorderFactory.createTitledBorder("Project Vulnerabilities"));
 
         loadButton.addActionListener(e -> extension.loadProjectVulnerabilities());
-        includeButton.addActionListener(e -> extension.includeSelectedVulnerabilityInRequirements());
-        list.addListSelectionListener(e -> {
-            if (!e.getValueIsAdjusting()) {
-                includeButton.setEnabled(list.getSelectedValue() != null);
+        list.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                maybeShowPopup(e);
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                maybeShowPopup(e);
+            }
+
+            private void maybeShowPopup(MouseEvent e) {
+                if (!e.isPopupTrigger()) {
+                    return;
+                }
+                int row = list.locationToIndex(e.getPoint());
+                if (row < 0) {
+                    return;
+                }
+                list.setSelectedIndex(row);
+                VulnerabilityRecord record = model.get(row);
+
+                JPopupMenu popup = new JPopupMenu();
+                JMenu requirementsMenu = extension.buildRequirementsMenu(
+                    requirement -> extension.stageVulnerabilityInX9(record, requirement.getId())
+                );
+                popup.add(requirementsMenu);
+                popup.show(list, e.getX(), e.getY());
             }
         });
 

@@ -89,6 +89,19 @@ final class GraphQLQueries {
         "  }\n" +
         "}";
 
+    static final String ISSUE_BY_ID_QUERY =
+        "query Issue($id: ID!) {\n" +
+        "  issue(id: $id) {\n" +
+        "    id\n" +
+        "    title\n" +
+        "    description\n" +
+        "    severity\n" +
+        "    ... on VulnerabilityInterface {\n" +
+        "      summary(blob: true)\n" +
+        "    }\n" +
+        "  }\n" +
+        "}";
+
     static final String UPDATE_ACTIVITY_STATUS_MUTATION =
         "mutation UpdateActivityStatus($input: UpdateActivityStatusInput!) {\n" +
         "  updateActivityStatus(input: $input) {\n" +

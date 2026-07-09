@@ -72,7 +72,6 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
 
     private static final String EXTENSION_NAME = "Conviso Platform";
     private static final int STANDARD_MIN_TOKEN_LENGTH = 6;
-    private static final int TEMPLATE_MIN_TOKEN_LENGTH = 4;
 
     private IBurpExtenderCallbacks callbacks;
     private IExtensionHelpers helpers;
@@ -91,6 +90,7 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
     });
 
     private final Map<String, IHttpRequestResponse> x9MessageRefs = new HashMap<>();
+    private final Map<String, VulnerabilityRecord> x9VulnerabilityRefs = new HashMap<>();
     private final List<AbstractButton> busyButtons = new ArrayList<>();
 
     private JPanel rootPanel;
@@ -144,12 +144,22 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
         createVuln.addActionListener(e -> createVulnerabilityFromSelection(invocation));
         root.add(createVuln);
 
+        JMenu requirementsMenu = buildRequirementsMenu(requirement -> stageInX9(invocation, requirement.getId()));
+        root.add(requirementsMenu);
+
+        List<JMenuItem> items = new ArrayList<>();
+        items.add(root);
+        return items;
+    }
+
+    /** Builds a "Requirements" submenu listing the loaded catalog, shared between the Proxy/Repeater context menu and the Vulnerabilities tab's own context menu. */
+    public JMenu buildRequirementsMenu(Consumer<RequirementItem> onRequirementSelected) {
         JMenu requirementsMenu = new JMenu("Requirements");
         List<RequirementItem> catalog = requirementCatalog();
         if (!catalog.isEmpty()) {
             for (RequirementItem requirement : catalog) {
                 JMenuItem requirementItem = new JMenuItem(requirement.toString());
-                requirementItem.addActionListener(e -> stageInX9(invocation, requirement.getId()));
+                requirementItem.addActionListener(e -> onRequirementSelected.accept(requirement));
                 requirementsMenu.add(requirementItem);
             }
         } else {
@@ -157,11 +167,7 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
             empty.setEnabled(false);
             requirementsMenu.add(empty);
         }
-        root.add(requirementsMenu);
-
-        List<JMenuItem> items = new ArrayList<>();
-        items.add(root);
-        return items;
+        return requirementsMenu;
     }
 
     // ------------------------------------------------------------------
@@ -436,16 +442,16 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
         });
     }
 
-    public void includeSelectedVulnerabilityInRequirements() {
-        VulnerabilityRecord record = vulnerabilitiesTab.getSelectedRecord();
+    /**
+     * Stages a vulnerability-to-requirement link as an X9 draft, chosen from the Vulnerabilities tab's
+     * own "Requirements" context menu — mirrors {@link #stageInX9} (Proxy/Repeater context menu): nothing
+     * is sent to the platform here, only queued in X9 for review/send like any other draft. Only the
+     * summary text and evidence source differ (Title/Description/Severity PNG instead of a live Burp
+     * request/response).
+     */
+    public void stageVulnerabilityInX9(VulnerabilityRecord record, String requirementId) {
         if (record == null) {
             showMessage("Select a vulnerability.");
-            return;
-        }
-
-        String apiKey = settingsTab.readApiKey();
-        if (apiKey.isEmpty()) {
-            showMessage("Set the API Key in Settings > Configuration.");
             return;
         }
 
@@ -454,45 +460,39 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
             showMessage("Select a project in Settings > Configuration.");
             return;
         }
-
-        if (requirementCatalog().isEmpty()) {
-            try {
-                JsonArray requirements = apiClient.fetchRequirements(apiKey, projectId);
-                requirementsTab.fillRequirements(requirements);
-            } catch (ConvisoApiException ex) {
-                showMessage("Failed to load requirements: " + ex.getMessage());
-                return;
-            }
+        if (requirementId == null || requirementId.isEmpty()) {
+            showMessage("Select a requirement.");
+            return;
         }
 
-        setBusy(true);
-        backgroundExecutor.submit(() -> {
-            try {
-                String requirementId = determineRequirementForVulnerability(record);
-                if (requirementId.isEmpty()) {
-                    throw new ConvisoApiException("Could not identify the requirement.");
-                }
-                if (!ensureRequirementRunning(requirementId)) {
-                    return;
-                }
+        RequirementItem requirement = findRequirementById(requirementId);
+        String requirementTitle = requirement != null ? requirement.getTitle() : requirementId;
+        String summary = buildVulnerabilityLinkSummary(requirementTitle, record, settingsTab.currentSummaryLanguage());
 
-                String summary = "The following vulnerability was identified at the link: " + buildVulnerabilityLink(record);
-                SwingUtilities.invokeLater(() -> {
-                    settings.setRequirementId(requirementId);
-                    requirementsTab.selectRequirementById(requirementId);
-                });
+        addVulnerabilityX9DraftItem(projectId, requirementId, summary, record);
+        settings.setProjectId(projectId);
+        settings.setRequirementId(requirementId);
 
-                apiClient.markRequirementDone(apiKey, requirementId, summary, null);
+        appendOutput("[+] Requirement " + requirementId + " was sent to X9 as a draft (linked to vulnerability).");
+        mainTabs.setSelectedIndex(2);
+    }
 
-                SwingUtilities.invokeLater(() -> mainTabs.setSelectedIndex(1));
-                appendOutput("[+] Vulnerability sent directly to requirement " + requirementId + " (status changed to Done).");
-            } catch (ConvisoApiException | AiServiceException ex) {
-                appendOutput("[!] Error including vulnerability in requirements: " + ex.getMessage());
-                showMessage("Failed to include vulnerability: " + ex.getMessage());
-            } finally {
-                setBusy(false);
-            }
-        });
+    /** Mirrors the Settings > Configuration "Summary Language" toggle that already drives every AI-generated field sent to the platform, so this hand-written comment matches it too. */
+    private String buildVulnerabilityLinkSummary(String requirementTitle, VulnerabilityRecord record, String language) {
+        String vulnerabilityTitle = safe(record.getTitle());
+        String vulnerabilityUrl = buildVulnerabilityFullUrl(record);
+        if ("en".equalsIgnoreCase(language)) {
+            return "During the tests performed for the context of this requirement (" + requirementTitle
+                + "), the vulnerability " + vulnerabilityTitle
+                + " was identified, which was reported and registered at " + vulnerabilityUrl;
+        }
+        return "Dentro dos testes realizados para o contexto deste requirement de " + requirementTitle
+            + " foi identificada a vulnerabilidade de " + vulnerabilityTitle
+            + ", a qual foi reportada e registrada em " + vulnerabilityUrl;
+    }
+
+    private String buildVulnerabilityFullUrl(VulnerabilityRecord record) {
+        return "https://app.convisoappsec.com/spa/company/" + currentCompanyId() + "/vulnerabilities/" + safe(record.getId());
     }
 
     // ------------------------------------------------------------------
@@ -588,6 +588,7 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
         String key = X9Tab.keyOf(item);
         x9Tab.removeItemByKey(key);
         x9MessageRefs.remove(key);
+        x9VulnerabilityRefs.remove(key);
         saveX9Items();
         appendOutput("[+] Requirement " + item.getRequirementId() + " removed from X9.");
     }
@@ -606,10 +607,12 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
             return;
         }
 
-        IHttpRequestResponse message = x9MessageRefs.get(X9Tab.keyOf(item));
-        if (message == null) {
-            showMessage("No request/response evidence available for requirement " + item.getRequirementId()
-                + " (the original message reference was lost, likely due to a Burp restart).");
+        String key = X9Tab.keyOf(item);
+        IHttpRequestResponse message = x9MessageRefs.get(key);
+        VulnerabilityRecord vulnerabilityRecord = x9VulnerabilityRefs.get(key);
+        if (message == null && vulnerabilityRecord == null) {
+            showMessage("No evidence available for requirement " + item.getRequirementId()
+                + " (the original reference was lost, likely due to a Burp restart).");
             return;
         }
 
@@ -618,15 +621,27 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
         setBusy(true);
         backgroundExecutor.submit(() -> {
             try {
-                HttpEvidence evidence = evidenceExtractor.extract(message);
-                byte[] evidencePng = EvidenceScreenshotRenderer.renderRequestResponsePng(
-                    evidence.getMethod(), evidence.getUrl(), evidence.getFullRequest(), evidence.getFullResponse()
-                );
+                byte[] evidencePng;
+                String fileName;
+                if (message != null) {
+                    evidencePng = renderRequestResponseEvidence(message);
+                    fileName = "evidence.png";
+                } else {
+                    // The vulnerability must already exist on the Conviso Platform in this flow (it was
+                    // either just created there or loaded via "Load Project Vulnerabilities"), so the
+                    // locally cached record may be missing description/summary — the Issues list query
+                    // never requests those fields. Always re-fetch the full detail from the platform.
+                    VulnerabilityRecord detail = apiClient.fetchVulnerabilityDetail(apiKey, vulnerabilityRecord.getId());
+                    evidencePng = EvidenceScreenshotRenderer.renderVulnerabilitySummaryPng(
+                        safe(detail.getTitle()), safe(detail.getDescription()), safe(detail.getEvidence()), safe(detail.getSeverity())
+                    );
+                    fileName = "VulnerabilitySummary-" + safe(vulnerabilityRecord.getId()) + ".png";
+                }
 
                 if (markAsDone) {
-                    apiClient.markRequirementDone(apiKey, item.getRequirementId(), item.getSummary(), evidencePng);
+                    apiClient.markRequirementDone(apiKey, item.getRequirementId(), item.getSummary(), evidencePng, fileName);
                 } else {
-                    apiClient.addRequirementAttachment(apiKey, item.getRequirementId(), item.getSummary(), evidencePng);
+                    apiClient.addRequirementAttachment(apiKey, item.getRequirementId(), item.getSummary(), evidencePng, fileName);
                 }
 
                 item.setState("SENT");
@@ -634,7 +649,9 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
                 item.setApprovedBy(System.getProperty("user.name", "analyst"));
                 SwingUtilities.invokeLater(() -> x9Tab.notifyItemChanged(item));
 
-                markAsSentInBurp(message, item.getRequirementId());
+                if (message != null) {
+                    markAsSentInBurp(message, item.getRequirementId());
+                }
                 appendOutput("[+] Requirement " + item.getRequirementId() + " sent to platform via X9"
                     + (markAsDone ? " (status changed to Done)." : " (status remains Running)."));
             } catch (IOException | ConvisoApiException ex) {
@@ -644,6 +661,13 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
                 saveX9Items();
             }
         });
+    }
+
+    private byte[] renderRequestResponseEvidence(IHttpRequestResponse message) throws IOException {
+        HttpEvidence evidence = evidenceExtractor.extract(message);
+        return EvidenceScreenshotRenderer.renderRequestResponsePng(
+            evidence.getMethod(), evidence.getUrl(), evidence.getFullRequest(), evidence.getFullResponse()
+        );
     }
 
     /** The extension only allows attaching evidence while a requirement is Running (IN_PROGRESS) on the platform, matching the platform's own rule. */
@@ -881,7 +905,7 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
             byte[] png = EvidenceScreenshotRenderer.renderRequestResponsePng(
                 evidence.getMethod(), evidence.getUrl(), evidence.getFullRequest(), evidence.getFullResponse()
             );
-            apiClient.uploadAttachment(apiKey, currentCompanyId(), issueId, "evidence.png", "image/png", png);
+            apiClient.uploadAttachment(apiKey, currentCompanyId(), issueId, "Evidence01-" + issueId + ".png", "image/png", png);
         } catch (IOException | ConvisoApiException ex) {
             appendOutput("[!] Failed to attach automatic evidence: " + ex.getMessage());
         }
@@ -983,62 +1007,6 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
         saveVulnerabilityItems();
     }
 
-    // ------------------------------------------------------------------
-    // Requirement matching for vulnerabilities
-    // ------------------------------------------------------------------
-
-    private String determineRequirementForVulnerability(VulnerabilityRecord record) throws AiServiceException {
-        List<RequirementItem> catalog = requirementCatalog();
-        if (record == null || catalog.isEmpty()) {
-            return "";
-        }
-
-        String templateDriven = determineRequirementByTemplate(record, catalog);
-        if (!templateDriven.isEmpty()) {
-            return templateDriven;
-        }
-
-        String aiApiKey = settingsTab.readAiApiKey();
-        if (aiApiKey.isEmpty()) {
-            return fallbackRequirementForVulnerability(record, catalog);
-        }
-
-        String content = aiService.classifyRequirement(aiApiKey, settingsTab.currentAiProviderId(), null, catalog);
-        String candidate = safe(content).trim().replaceAll("[^0-9A-Za-z_-]", "");
-        if (!candidate.isEmpty() && findRequirementById(candidate) != null) {
-            return candidate;
-        }
-        return fallbackRequirementForVulnerability(record, catalog);
-    }
-
-    private String determineRequirementByTemplate(VulnerabilityRecord record, List<RequirementItem> catalog) {
-        String templateEvidence = (safe(record.getTemplate()) + " " + safe(record.getCategory()) + " " + safe(record.getPattern())).trim();
-        if (templateEvidence.isEmpty()) {
-            return "";
-        }
-        return RequirementMatcher.matchByQueryTokens(templateEvidence, catalog, TEMPLATE_MIN_TOKEN_LENGTH).orElse("");
-    }
-
-    private String fallbackRequirementForVulnerability(VulnerabilityRecord record, List<RequirementItem> catalog) {
-        String evidence = safe(record.getTitle()) + " " + safe(record.getTemplate()) + " " + safe(record.getCategory()) + " "
-            + safe(record.getPattern()) + " " + safe(record.getDescription()) + " " + safe(record.getJustification()) + " " + safe(record.getEvidence());
-        return RequirementMatcher.matchByDescriptionTokens(evidence, catalog, STANDARD_MIN_TOKEN_LENGTH)
-            .orElseGet(() -> RequirementMatcher.firstAvailable(catalog));
-    }
-
-    private String buildVulnerabilityLink(VulnerabilityRecord record) {
-        if (record == null) {
-            return "";
-        }
-        if (!safe(record.getEndpoint()).isEmpty()) {
-            return safe(record.getEndpoint());
-        }
-        if (!safe(record.getId()).isEmpty()) {
-            return "vulnerability/" + safe(record.getId());
-        }
-        return safe(record.getTitle());
-    }
-
     private void classifyByTemplate(VulnerabilityRecord record) {
         String[] classification = VulnerabilityClassifier.inferCategoryAndPattern(record.getTemplate());
         if (record.getCategory() == null || record.getCategory().trim().isEmpty()) {
@@ -1097,6 +1065,20 @@ public final class ConvisoExtension implements IBurpExtender, IContextMenuFactor
         if (message != null) {
             x9MessageRefs.put(X9Tab.keyOf(item), message);
         }
+        saveX9Items();
+    }
+
+    private void addVulnerabilityX9DraftItem(String projectId, String requirementId, String summary, VulnerabilityRecord record) {
+        X9Item item = new X9Item();
+        item.setProjectId(projectId);
+        item.setRequirementId(requirementId);
+        item.setEntryId(X9Tab.keyOf(projectId, requirementId) + "::" + System.nanoTime());
+        item.setSummary(summary);
+        item.setState("DRAFT");
+        item.setTitle(requirementTitleOf(requirementId));
+
+        x9Tab.addItem(item);
+        x9VulnerabilityRefs.put(X9Tab.keyOf(item), record);
         saveX9Items();
     }
 

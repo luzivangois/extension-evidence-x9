@@ -368,10 +368,9 @@ public final class ConvisoApiClient {
 
     /**
      * Sets a requirement (activity) to DONE with a comment, optionally attaching one evidence file.
-     * Pass {@code evidencePng} as {@code null} to leave archives empty (e.g. when there's no live
-     * Burp evidence available, such as the "Follow requirement" flow from an existing vulnerability).
+     * Pass {@code evidencePng} as {@code null} to leave archives empty.
      */
-    public void markRequirementDone(String apiKey, String requirementId, String comment, byte[] evidencePng) throws ConvisoApiException {
+    public void markRequirementDone(String apiKey, String requirementId, String comment, byte[] evidencePng, String fileName) throws ConvisoApiException {
         if (evidencePng == null) {
             JsonObject input = buildActivityStatusInput(requirementId, "DONE", comment);
             input.add("archives", new JsonArray());
@@ -390,16 +389,39 @@ public final class ConvisoApiClient {
         }
 
         JsonObject input = buildActivityStatusInput(requirementId, "DONE", comment);
-        uploadActivityAttachmentMutation(apiKey, "UpdateActivityStatus", GraphQLQueries.UPDATE_ACTIVITY_STATUS_MUTATION, "updateActivityStatus", input, "evidence.png", "image/png", evidencePng);
+        uploadActivityAttachmentMutation(apiKey, "UpdateActivityStatus", GraphQLQueries.UPDATE_ACTIVITY_STATUS_MUTATION, "updateActivityStatus", input, fileName, "image/png", evidencePng);
     }
 
-    /** Attaches one evidence file to a requirement (activity) with a comment, without changing its status. */
-    public void addRequirementAttachment(String apiKey, String requirementId, String comment, byte[] evidencePng) throws ConvisoApiException {
+    /**
+     * Adds a comment (optionally with one evidence file) to a requirement (activity) without changing
+     * its status. Pass {@code evidencePng} as {@code null} to leave archives empty (e.g. the "Follow
+     * requirement" flow from an existing vulnerability, which has no live Burp evidence to attach).
+     */
+    public void addRequirementAttachment(String apiKey, String requirementId, String comment, byte[] evidencePng, String fileName) throws ConvisoApiException {
+        if (evidencePng == null) {
+            JsonObject input = new JsonObject();
+            addIntOrString(input, "id", requirementId);
+            input.addProperty("reason", comment);
+            input.add("archives", new JsonArray());
+
+            JsonObject variables = new JsonObject();
+            variables.add("input", input);
+
+            JsonObject payload = new JsonObject();
+            payload.addProperty("operationName", "AddActivityAttachment");
+            payload.add("variables", variables);
+            payload.addProperty("query", GraphQLQueries.ADD_ACTIVITY_ATTACHMENT_MUTATION);
+
+            JsonObject response = graphqlRequest(apiKey, payload);
+            checkActivityMutationErrors(response, "addActivityAttachment");
+            return;
+        }
+
         JsonObject input = new JsonObject();
         addIntOrString(input, "id", requirementId);
         input.addProperty("reason", comment);
 
-        uploadActivityAttachmentMutation(apiKey, "AddActivityAttachment", GraphQLQueries.ADD_ACTIVITY_ATTACHMENT_MUTATION, "addActivityAttachment", input, "evidence.png", "image/png", evidencePng);
+        uploadActivityAttachmentMutation(apiKey, "AddActivityAttachment", GraphQLQueries.ADD_ACTIVITY_ATTACHMENT_MUTATION, "addActivityAttachment", input, fileName, "image/png", evidencePng);
     }
 
     private JsonObject buildActivityStatusInput(String requirementId, String status, String comment) {
@@ -469,6 +491,38 @@ public final class ConvisoApiClient {
             && mutationResult.getAsJsonArray("errors").size() > 0) {
             throw new ConvisoApiException(mutationResult.getAsJsonArray("errors").toString());
         }
+    }
+
+    /**
+     * Fetches a single vulnerability's Title/Description/Summary/Severity directly from the Conviso
+     * Platform by issue id. Used right before rendering the evidence PNG for the "link vulnerability
+     * to requirement" flow, since a vulnerability loaded via {@link #fetchProjectVulnerabilities} (as
+     * opposed to one just created by this extension) never carries description/summary locally — the
+     * Issues list query doesn't request those fields.
+     */
+    public VulnerabilityRecord fetchVulnerabilityDetail(String apiKey, String issueId) throws ConvisoApiException {
+        JsonObject variables = new JsonObject();
+        addIntOrString(variables, "id", issueId);
+
+        JsonObject payload = new JsonObject();
+        payload.addProperty("operationName", "Issue");
+        payload.add("variables", variables);
+        payload.addProperty("query", GraphQLQueries.ISSUE_BY_ID_QUERY);
+
+        JsonObject response = graphqlRequest(apiKey, payload);
+        JsonObject data = response.getAsJsonObject("data");
+        JsonObject issue = data == null ? null : data.getAsJsonObject("issue");
+        if (issue == null) {
+            throw new ConvisoApiException("Vulnerability not found on the Conviso Platform: " + issueId);
+        }
+
+        VulnerabilityRecord record = new VulnerabilityRecord();
+        record.setId(getString(issue, "id"));
+        record.setTitle(getString(issue, "title"));
+        record.setDescription(getString(issue, "description"));
+        record.setEvidence(getString(issue, "summary"));
+        record.setSeverity(getString(issue, "severity"));
+        return record;
     }
 
     public VulnerabilityRecord parseVulnerabilityRecord(JsonObject obj, String projectId) {
